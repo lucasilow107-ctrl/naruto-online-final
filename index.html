@@ -43,8 +43,10 @@ h1{font:clamp(18px,4vw,34px) 'Press Start 2P',monospace;color:#ffb300;text-shado
 button{font:11px 'Press Start 2P',monospace;padding:14px 18px;background:#ffb300;border:0;box-shadow:0 5px 0 #a66a00;cursor:pointer}
 #zn{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);padding:8px 16px;font:11px 'Press Start 2P',monospace;color:#ffd54f;opacity:0;transition:opacity .6s;white-space:nowrap}
 #boss{position:absolute;top:calc(64px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(380px,60vw);padding:6px 10px;display:none;text-align:center;font-size:13px}
-#ib{position:absolute;left:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));pointer-events:auto;padding:12px 10px}
-#inv{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:4}
+#ib,#sb,#rb{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom,0px));pointer-events:auto;padding:12px 10px}
+#ib{left:12px}#sb{left:170px;background:#90caf9;box-shadow:0 5px 0 #4a7fb0}
+#rb{left:328px;background:#a5d6a7;box-shadow:0 5px 0 #2e7d32;color:#000}
+#inv,#roomModal{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.65);z-index:10}
 .ip{width:min(720px,94vw);max-height:90vh;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
 .ih{display:flex;justify-content:space-between;align-items:center;font:12px 'Press Start 2P',monospace}
 .x{padding:8px 10px;font-size:10px;background:#e53935;box-shadow:0 3px 0 #8e1b17;color:#fff}
@@ -66,35 +68,14 @@ button{font:11px 'Press Start 2P',monospace;padding:14px 18px;background:#ffb300
 .sl{width:80px;height:90px;border-radius:4px;background:linear-gradient(#233246,#131c28)}.sl span{font-size:11px;line-height:12px}.sl em{font-size:10px;top:3px;left:5px}
 .ic{width:48px;height:48px;image-rendering:pixelated;display:block;margin:0 auto 2px}
 .es{width:100px;height:104px;font-size:12px}.it{font-size:12px;padding:8px}.es i,.it i{font-size:0}
-#ib,#sb{padding:15px 16px;font-size:12px;background:#ffb300;pointer-events:auto;position:absolute;bottom:calc(14px + env(safe-area-inset-bottom,0px))}
-#ib{left:12px}#sb{left:170px;background:#90caf9;box-shadow:0 5px 0 #4a7fb0}
 #zn{font-size:16px}#boss{font-size:17px;width:min(600px,70vw);top:calc(112px + env(safe-area-inset-top,0px))}
 #wbt{position:absolute;top:calc(62px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);padding:8px 14px;font-size:14px;display:none;color:#ff8a80;border-color:#ff1744;white-space:nowrap}
 #warn{position:absolute;top:150px;left:50%;transform:translateX(-50%);font:20px/1.6 'Press Start 2P',monospace;color:#ff1744;text-shadow:0 0 14px #f00,3px 3px 0 #000;display:none;text-align:center;animation:bl .5s infinite alternate}@keyframes bl{to{opacity:.3}}
 #hint{font-size:18px;padding:12px 22px}button{padding:16px 22px;font-size:13px}#dbt button{font-size:16px;padding:14px}
-#hud,#lb,#bar,#ib,#sb,#hint,#boss,#zn,#wbt{zoom:var(--us,1)}
+#hud,#lb,#bar,#ib,#sb,#rb,#hint,#boss,#zn,#wbt{zoom:var(--us,1)}
 #set{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:6}
 .rw{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:16px;padding:5px 0}.rw input{width:55%;height:22px}.kg{display:grid;grid-template-columns:1fr 1fr;gap:4px 22px}.rw button{padding:9px 14px;font-size:12px;min-width:110px}
-:root{--bg:#0e1621ee;--bd:#2f4a66;--ac:#ffb300}
-.box{background:var(--bg);border:2px solid var(--bd);border-radius:12px;box-shadow:0 6px 18px #0008}
-#hud{padding:12px 14px;gap:8px;width:310px;border-radius:14px;background:var(--bg)}
-#top{display:flex;gap:10px;align-items:center}#av{width:44px;height:57px;image-rendering:pixelated;background:#1c2b3d;border:2px solid var(--bd);border-radius:10px;padding:2px}
-#nm{font-weight:700;font-size:16px}#st{font:600 12px 'Segoe UI',sans-serif;color:#cfd8dc;display:flex;gap:10px;margin-top:2px}#lv{color:var(--ac)}
-.bar{width:100%;height:20px;border-radius:10px;border:0;background:#0a0f16;box-shadow:inset 0 0 0 2px #1b2a3b}.fill{border-radius:10px;background-image:linear-gradient(#fff3,#0003)}.bt{font-size:12px;line-height:20px}#xp{height:8px;width:100%}
-#mm{top:calc(12px + env(safe-area-inset-top,0px));right:12px;bottom:auto;width:170px;height:170px;border-radius:50%;border-width:3px}
-#zl{position:absolute;top:calc(192px + env(safe-area-inset-top,0px));right:12px;width:170px;text-align:center;padding:6px 4px;font-size:13px;font-weight:700}
-#lb{top:calc(236px + env(safe-area-inset-top,0px));right:12px;width:170px;font-size:13px;padding:8px 10px;border-radius:12px}
-#bar{bottom:calc(14px + env(safe-area-inset-bottom,0px));gap:8px;padding:8px;border-radius:16px}
-.sl{width:76px;height:88px;border-radius:12px;border:2px solid #3a526d}.sl .ic{width:46px;height:46px}
-#ib,#sb{width:68px;height:68px;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font:26px 'Segoe UI',sans-serif;border-radius:14px;box-shadow:0 4px 0 #0006;background:#1d3045;color:#fff;border:2px solid var(--bd)}
-#ib small,#sb small{font:600 11px 'Segoe UI',sans-serif;margin-top:2px}#ib{left:14px}#sb{left:92px}
-#zn{top:calc(12px + env(safe-area-inset-top,0px));font-size:15px;border-radius:12px}#wbt{top:calc(58px + env(safe-area-inset-top,0px));border-radius:12px}#boss{top:calc(100px + env(safe-area-inset-top,0px));width:min(520px,60vw);border-radius:12px}
-#hint{bottom:calc(120px + env(safe-area-inset-bottom,0px));border-radius:12px;font-size:17px}
-.ip{border-radius:18px;padding:18px}.ih b{font-size:14px}.es,.it{border-radius:12px}.it{padding:10px 6px}.x{border-radius:10px}
-#zl,#mm{zoom:var(--us,1)}
-
-/* ===== GIAO DIỆN PIXEL LÀNG LÁ (KONOHA) ===== */
-:root{--ink:#2a160a;--wood:#7a4a22;--wood2:#4e2d14;--parch:#f3e4b5;--parch2:#e7d094;--leaf:#3f8f3a;--org:#f07f1c;--navy:#2b3a67;--red:#c62828;--gold:#ffcf4a}
+:root{--bg:#0e1621ee;--bd:#2f4a66;--ac:#ffb300;--wood2:#4e2d14;--parch:#f3e4b5;--parch2:#e7d094;--ink:#2a160a;--org:#f07f1c;--navy:#2b3a67;--leaf:#3f8f3a;--red:#c62828;--gold:#ffcf4a}
 *{image-rendering:pixelated}
 .box{background:var(--wood2);color:var(--parch);border:0;border-radius:0;box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 4px 0 0 #8a5a2e,inset 0 -4px 0 0 #2f1a0b,inset 4px 0 0 0 #6b3f1d,inset -4px 0 0 0 #3a2210}
 #zn,#zl,#hint,#boss,#wbt,.ip,.auth-card,.card,#start .sub{background:var(--parch);color:var(--ink);border:0;border-radius:0;box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 4px 0 0 #fff9,inset 0 -4px 0 0 #c9ad6a,inset 4px 0 0 0 #f9edc8,inset -4px 0 0 0 #d7bb7a}
@@ -123,9 +104,10 @@ button:hover{filter:brightness(1.12)}button:active{transform:translateY(3px)}
 .sl{width:76px;height:88px;background:var(--parch2);border:4px solid #5b3a1a;border-radius:0;box-shadow:inset 0 0 0 2px #fff6;color:var(--ink)}
 .sl span{color:var(--ink);font-weight:700;font-size:10px}.sl em{background:var(--red);color:#fff;padding:3px 4px;top:0;left:0;font:8px 'Press Start 2P',monospace}
 .sl:hover{border-color:var(--org)}.sl.no{opacity:.5}.cd{background:#000a;color:#ffb066}
-#ib,#sb{width:72px;height:72px;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font:28px 'Segoe UI',sans-serif;color:#fff;border-radius:0;background:var(--leaf);box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -6px 0 0 #2a6a27,inset 0 4px 0 0 #7fd07a}
+#ib,#sb,#rb{width:72px;height:72px;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font:28px 'Segoe UI',sans-serif;color:#fff;border-radius:0;background:var(--leaf);box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -6px 0 0 #2a6a27,inset 0 4px 0 0 #7fd07a}
 #sb{background:var(--navy);box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -6px 0 0 #1b2650,inset 0 4px 0 0 #6b82c0}
-#ib small,#sb small{font:700 10px 'Segoe UI',sans-serif;text-shadow:1px 1px 0 #000}#ib{left:18px}#sb{left:104px}
+#rb{background:#3b82f6;box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -6px 0 0 #1d4ed8,inset 0 4px 0 0 #60a5fa}
+#ib small,#sb small,#rb small{font:700 10px 'Segoe UI',sans-serif;text-shadow:1px 1px 0 #000}#ib{left:18px}#sb{left:104px}#rb{left:190px}
 .ip{padding:20px}.ih b{font:12px 'Press Start 2P','Segoe UI',sans-serif;color:#b3541e}.ip .sub,.auth-card .sub,#start .sub{color:#5b3a1a}.rw{color:var(--ink)}.rw input{accent-color:var(--org)}
 .es,.it{background:var(--parch2);color:var(--ink);border:3px solid;border-radius:0}.it.on{background:#f7d98a}.es em{color:#b71c1c}
 #dbt button{font:700 15px 'Segoe UI',sans-serif;padding:13px;text-shadow:1px 1px 0 var(--ink)}
@@ -139,9 +121,10 @@ h1{font-family:'Press Start 2P',monospace;color:var(--org);text-shadow:3px 3px 0
 .auth-sub{font:10px 'Press Start 2P',monospace;color:#2e7d32;margin:12px 0 18px}
 .auth-tabs{display:flex;gap:10px;margin-bottom:18px}.auth-tab{flex:1;padding:12px 6px;font-size:10px;background:#8a5a2e;box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -6px 0 0 #5b3a1a,inset 0 4px 0 0 #b98a52}.auth-tab.active{background:var(--org);box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -6px 0 0 #b85a0c,inset 0 4px 0 0 #ffb066}
 .auth-form{display:flex;flex-direction:column;gap:6px;text-align:left}.auth-form label{font-weight:700;font-size:13px;margin-top:4px}
-.auth-form input{width:100%;padding:12px;border:4px solid #5b3a1a;background:#fffbe8;color:var(--ink);font-size:15px;border-radius:0;outline:none;user-select:text}.auth-form input:focus{border-color:var(--org)}
+.auth-form input,.room-input{width:100%;padding:12px;border:4px solid #5b3a1a;background:#fffbe8;color:var(--ink);font-size:15px;border-radius:0;outline:none;user-select:text}.auth-form input:focus,.room-input:focus{border-color:var(--org)}
 .auth-submit,.auth-guest{width:100%;margin-top:12px}.auth-guest{background:var(--leaf);box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -6px 0 0 #2a6a27,inset 0 4px 0 0 #7fd07a}
 #authMsg{min-height:20px;margin-top:14px;color:#b71c1c;font-weight:700;font-size:13px}#authMsg.ok{color:#2e7d32}.auth-note{margin-top:12px;color:#6b4a2a;font-size:11px;line-height:1.5}
+.room-item{display:flex;justify-content:space-between;align-items:center;background:var(--parch2);padding:10px;border:3px solid var(--ink);margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -160,9 +143,11 @@ h1{font-family:'Press Start 2P',monospace;color:var(--org);text-shadow:3px 3px 0
  <div id="hint" class="box"></div>
  <button id="ib" onclick="inv()">🎒<small>Túi đồ</small></button>
  <button id="sb" onclick="setp()">⚙<small>Cài đặt</small></button>
+ <button id="rb" onclick="openRoomModal()">🌐<small>Server</small></button>
  <div id="warn"></div><div id="wbt" class="box"></div>
  <div id="bar" class="box"></div>
 </div>
+
 <div id="auth">
  <div class="auth-card box">
   <div class="auth-logo"><img class="lf" alt=""><span>NARUTO RPG</span><img class="lf" alt=""></div>
@@ -181,9 +166,27 @@ h1{font-family:'Press Start 2P',monospace;color:var(--org);text-shadow:3px 3px 0
   </form>
   <button type="button" class="auth-guest" onclick="playGuest()">CHƠI KHÁCH (lưu trên máy)</button>
   <div id="authMsg"></div>
-  <div class="auth-note">Tài khoản và dữ liệu lưu trên máy chủ Render. Máy chủ miễn phí có thể mất ~1 phút để thức dậy.</div>
  </div>
 </div>
+
+<!-- MODAL CÀI ĐẶT SERVER CHƠI CÙNG BẠN BÈ -->
+<div id="roomModal">
+ <div class="ip box">
+  <div class="ih"><b>🌐 TẠO SERVER / CHƠI CHUNG BẠN BÈ</b><button class="x" onclick="closeRoomModal()">✕</button></div>
+  <div style="margin:8px 0;">
+    <label style="font-weight:700;font-size:13px;color:var(--ink);">Mã phòng hoặc Tên Server:</label>
+    <input id="customRoomInput" class="room-input" placeholder="Nhập mã phòng, ví dụ: TEAM_7" maxlength="25" style="margin-top:4px;">
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button onclick="createCustomRoom()" style="flex:1;">TẠO SERVER RÊNG</button>
+      <button onclick="joinCustomRoom()" style="flex:1;background:var(--navy);">JOIN BẰNG MÃ</button>
+    </div>
+  </div>
+  <hr style="border:1px dashed #8a5a2e;margin:8px 0;">
+  <b>DANH SÁCH SERVER ONLINE:</b>
+  <div id="roomList" style="margin-top:6px;">Đang tải danh sách...</div>
+ </div>
+</div>
+
 <div id="start">
  <h1>NARUTO RPG<br>OPEN WORLD</h1>
  <div class="sub">WASD di chuyển · Chuột ngắm &amp; click bắn Kunai · Phím 1–6 dùng kỹ năng · I Túi đồ · E tương tác NPC / Cổng Raid · Đánh quái &amp; Boss để rớt đồ — quái càng mạnh (★) càng rớt đồ xịn</div>
@@ -196,10 +199,12 @@ h1{font-family:'Press Start 2P',monospace;color:var(--org);text-shadow:3px 3px 0
 
 <script>
 const $=id=>document.getElementById(id),C=$('c'),X=C.getContext('2d'),M=$('mm').getContext('2d');
-/* ---------- Tài khoản: GitHub Pages -> Render ---------- */
-const RENDER_URL='https://naruto-online-auth-login.onrender.com';
+/* ---------- Tài khoản & Quản lý Server ---------- */
+const RENDER_URL=location.origin;
 const API_BASE=RENDER_URL.replace(/\/+$/,'');
 let currentAccount=null,guest=false,picking=0;
+let currentRoomId = 'world';
+
 function authMsg(t,ok=false){const e=$('authMsg');if(!e)return;e.textContent=t||'';e.classList.toggle('ok',!!ok)}
 function showAuth(mode='login'){$('auth').style.display='flex';$('start').style.display='none';$('loginForm').style.display=mode==='login'?'flex':'none';$('registerForm').style.display=mode==='register'?'flex':'none';$('tabLogin').classList.toggle('active',mode==='login');$('tabRegister').classList.toggle('active',mode==='register');authMsg('')}
 async function api(url,options={}){const target=/^https?:\/\//i.test(url)?url:API_BASE+url;const headers={...(options.headers||{})};if(options.body!==undefined&&!headers['Content-Type'])headers['Content-Type']='application/json';const r=await fetch(target,{credentials:'include',...options,headers});let d={};try{d=await r.json()}catch(e){}if(!r.ok)throw new Error(d.error||'Lỗi máy chủ ('+r.status+').');return d}
@@ -210,11 +215,51 @@ async function registerAccount(ev){ev.preventDefault();const username=cleanUsern
  try{authMsg('Đang tạo tài khoản...',true);const d=await api('/api/register',{method:'POST',body:JSON.stringify({username,password:p})});currentAccount=d.username||username;guest=false;authMsg('Đăng ký thành công!',true);setTimeout(enterGame,200)}catch(e){authMsg(e.message)}}
 async function loginAccount(ev){ev.preventDefault();const username=cleanUsername($('loginUser').value),p=$('loginPass').value;
  try{authMsg('Đang đăng nhập...',true);const d=await api('/api/login',{method:'POST',body:JSON.stringify({username,password:p})});currentAccount=d.username||username;guest=false;authMsg('Đăng nhập thành công!',true);setTimeout(enterGame,200)}catch(e){authMsg(e.message)}}
-function playGuest(){guest=true;currentAccount='Khach';enterGame()}
-function enterGame(){if(!currentAccount)return;$('auth').style.display='none';$('start').style.display='flex';try{socket.disconnect();socket.connect()}catch(e){}}
+function playGuest(){guest=true;currentAccount='Khach'+Math.floor(Math.random()*899+100);enterGame()}
+function enterGame(){if(!currentAccount)return;$('auth').style.display='none';$('start').style.display='flex';try{if(socket){socket.disconnect();socket.connect()}}catch(e){}}
 async function logoutAccount(){try{if(!guest)await api('/api/logout',{method:'POST'})}catch(e){}currentAccount=null;guest=false;run=false;location.reload()}
 async function restoreSession(tries=0){try{const d=await api('/api/me');if(d.loggedIn){currentAccount=d.username;enterGame();return}showAuth('login')}
- catch(e){if(tries<4){authMsg('Đang đánh thức máy chủ Render... ('+(tries+1)+'/5)',true);setTimeout(()=>restoreSession(tries+1),8000)}else authMsg('Không kết nối được máy chủ. Bạn vẫn có thể bấm CHƠI KHÁCH.')}}
+ catch(e){if(tries<4){authMsg('Đang kết nối máy chủ... ('+(tries+1)+'/5)',true);setTimeout(()=>restoreSession(tries+1),2000)}else authMsg('Bạn có thể bấm CHƠI KHÁCH để bắt đầu ngay.')}}
+
+/* QUẢN LÝ PHÒNG & SERVER CHƠI CHUNG */
+function openRoomModal(){$('roomModal').style.display='flex';fetchRooms()}
+function closeRoomModal(){$('roomModal').style.display='none'}
+async function fetchRooms(){
+  try{
+    const res = await api('/api/rooms');
+    const list = res.rooms || [];
+    $('roomList').innerHTML = list.map(r => `
+      <div class="room-item">
+        <div><b>${r.name}</b> (${r.count} online)</div>
+        <button onclick="switchRoom('${r.id}','${r.name}')" ${currentRoomId===r.id?'disabled':''}>
+          ${currentRoomId===r.id?'ĐANG Ở ĐÂY':'VÀO SERVER'}
+        </button>
+      </div>
+    `).join('');
+  }catch(e){$('roomList').textContent = 'Không tải được danh sách Server';}
+}
+function createCustomRoom(){
+  const val = $('customRoomInput').value.trim();
+  if(!val) return alert('Hãy nhập tên Server!');
+  const roomId = 'room_' + val.toLowerCase().replace(/[^a-z0-9]/g, '');
+  switchRoom(roomId, 'Server: ' + val);
+  closeRoomModal();
+}
+function joinCustomRoom(){
+  const val = $('customRoomInput').value.trim();
+  if(!val) return alert('Hãy nhập mã phòng!');
+  const roomId = 'room_' + val.toLowerCase().replace(/[^a-z0-9]/g, '');
+  switchRoom(roomId, 'Server: ' + val);
+  closeRoomModal();
+}
+function switchRoom(roomId, roomName){
+  currentRoomId = roomId;
+  if(socket && socket.connected){
+    socket.emit('switch_room', { roomId, roomName });
+    banner('🌐 Đã chuyển sang Server: ' + (roomName || roomId));
+  }
+}
+
 /* ---------- Pixel Làng Lá: hình nền + biểu tượng lá ---------- */
 function leafIcon(){const c=document.createElement('canvas');c.width=c.height=16;const g=c.getContext('2d'),P=(x,y,q)=>{g.fillStyle=q;g.fillRect(x|0,y|0,1,1)};
  for(let y=0;y<14;y++){const w=Math.round(Math.sin((y+1)/15*Math.PI)*6);for(let x=-w;x<=w;x++)P(8+x,1+y,x==-w||x==w||y==0||y==13?'#1b5e20':'#43a047')}
@@ -427,7 +472,16 @@ function bossDead(t,s){txt(t.x,t.y-80,'BOSS HẠ GỤC!','#ffd54f');ring(t.x,t.y
 let sel=null;
 function inv(){const e=$('inv'),o=e.style.display==='flex';e.style.display=o?'none':'flex';if(!o)renderInv()}
 const lsKey=()=>'nio_'+(currentAccount||'x')+'_'+me.char;
-async function save(){if(!me)return;const data={i:me.inv,s:me.sl,k:me.kunai,a:me.armor,r:me.ryo};try{localStorage.setItem(lsKey(),JSON.stringify(data))}catch(e){}
+
+function getSavePayload(){
+  if(!me) return null;
+  return {
+    i: me.inv, s: me.sl, k: me.kunai, a: me.armor, r: me.ryo,
+    lvl: me.lvl, xp: me.xp, score: me.score
+  };
+}
+
+async function save(){if(!me)return;const data=getSavePayload();try{localStorage.setItem(lsKey(),JSON.stringify(data))}catch(e){}
  if(currentAccount&&!guest){try{await api('/api/save',{method:'POST',body:JSON.stringify({character:me.char,data})})}catch(e){console.warn('Save failed:',e.message)}}}
 async function load(){if(!me)return;let x=null;
  if(currentAccount&&!guest){try{x=(await api('/api/save/'+encodeURIComponent(me.char))).data}catch(e){console.warn('Load failed:',e.message)}}
@@ -436,6 +490,7 @@ async function load(){if(!me)return;let x=null;
  if(x.i)me.inv=x.i.filter(k=>IT[k]);if(!me.inv.includes('k0'))me.inv.unshift('k0');
  (x.s||[]).forEach((id,i)=>{if(id&&IT[id]&&me.inv.includes(id)){me.slots[i]=IT[id];me.sl[i]=id}});
  if(x.k&&IT[x.k]&&me.inv.includes(x.k))me.kunai=x.k;me.ryo=x.r||0;
+ if(x.lvl)me.lvl=x.lvl;if(x.xp)me.xp=x.xp;if(x.score)me.score=x.score;
  if(x.a&&IT[x.a]&&me.inv.includes(x.a))setArm(x.a);buildBar();renderInv()}
 function equip(i){if(!sel||IT[sel].t!=='s')return;me.slots[i]=IT[sel];me.sl[i]=sel;buildBar();renderInv();save()}
 function reset(i){me.slots[i]=SK[me.char][i];me.sl[i]=null;buildBar();renderInv();save()}
@@ -674,7 +729,7 @@ X.strokeStyle='#b71c1c';X.lineWidth=10;if(dg||lobby)X.strokeRect(BX0,BY0,BX1-BX0
  for(const o of dg||lobby?[]:OR){X.fillStyle=o.col;const b=Math.sin(fr*.1+o.x)*2;X.fillRect(o.x-o.s,o.y-o.s+b,o.s*2,o.s*2);X.fillStyle='#fff';X.fillRect(o.x-o.s,o.y-o.s+b,o.s*.7,o.s*.7)}
  for(const z of ZN){if(z.type==='wall'){X.fillStyle='#757575';X.fillRect(z.x-z.r,z.y-z.r,z.r*2,z.r*2);X.fillStyle='#9e9e9e';X.fillRect(z.x-z.r,z.y-z.r,z.r*2,8);X.strokeStyle='#424242';X.lineWidth=3;X.strokeRect(z.x-z.r,z.y-z.r,z.r*2,z.r*2)}
   else{X.globalAlpha=.35;X.fillStyle=z.col;X.beginPath();X.arc(z.x,z.y,z.r,0,6.28);X.fill();X.globalAlpha=1;
-   for(let i=0;i<14;i++){const a=i*.45+(z.type==='vortex'?fr*.1:0),d=z.type==='vortex'?(i*8+fr)%z.r:rnd(0,z.r);X.fillStyle=z.type==='burn'?(i%2?'#ff7043':'#311b4a'):'#b39ddb';X.fillRect(z.x+Math.cos(a)*d,z.y+Math.sin(a)*d-(z.type==='burn'?rnd(0,12):0),6,6)}}}
+   for(let i=0;i<14;i++){const a=i*.45+(z.type==='vortex'?fr*.1:0),d=z.type==='vortex'?(i*8+fr)%z.r:rnd(0,z.r);X.fillStyle=z.type==='burn'?(i%2?'#ff7043':'#311b4a'):'#b388ff';X.fillRect(z.x+Math.cos(a)*d,z.y+Math.sin(a)*d-(z.type==='burn'?rnd(0,12):0),6,6)}}}
  for(const c of CL){X.globalAlpha=.7;X.save();X.translate(c.x,c.y-26);X.scale(c.fa,1);X.drawImage(SPR[c.o.char][fr>>3&1],-15,0);X.restore();X.globalAlpha=1}
  if(lobby){NP.forEach(drawN);drawP(GATE)}else if(!dg)PO.forEach(drawP);else if(dg.exit)drawP({n:'Thoát Raid',x:dg.exit.x,y:dg.exit.y});
  [...F].sort((a,b)=>a.y-b.y).forEach(drawF);
@@ -704,11 +759,17 @@ function loop(t){if(!run)return;acc+=Math.min(100,t-last);last=t;while(acc>=16.6
 let acc=0,last=0;
 
 /* ---------- Input & start ---------- */
-addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(cap){e.preventDefault();if(cap.i>=0)KB.sk[cap.i]=k;else KB[cap.a]=k;cap=null;sv();renderSet();return}keys[k]=true;if(run&&k===KB.inv)inv();if(run&&k===KB.inter){const i=inter();if(i)i.k==='n'?talk(i.o):i.k==='p'?enterDungeon(i.o.di):i.k==='g'?toWorld():leaveDungeon(1)}if(k==='escape'){if($('dlg').style.display==='flex'||$('inv').style.display==='flex'){dlc();$('inv').style.display='none'}else setp()}if(k==='escape'&&$('inv').style.display==='flex')inv();const si=KB.sk.indexOf(k);if(run&&si>=0)useSkill(me,si)});
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(cap){e.preventDefault();if(cap.i>=0)KB.sk[cap.i]=k;else KB[cap.a]=k;cap=null;sv();renderSet();return}keys[k]=true;if(run&&k===KB.inv)inv();if(run&&k===KB.inter){const i=inter();if(i)i.k==='n'?talk(i.o):i.k==='p'?enterDungeon(i.o.di):i.k==='g'?toWorld():leaveDungeon(1)}if(k==='escape'){if($('dlg').style.display==='flex'||$('inv').style.display==='flex'||$('roomModal').style.display==='flex'){dlc();$('inv').style.display='none';closeRoomModal()}else setp()}const si=KB.sk.indexOf(k);if(run&&si>=0)useSkill(me,si)});
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
 addEventListener('mousemove',e=>{ms.x=e.clientX;ms.y=e.clientY});
-addEventListener('mousedown',e=>{if(!e.target.closest('#bar,#inv,#ib,#dlg,#set,#sb'))down=true});
+addEventListener('mousedown',e=>{if(!e.target.closest('#bar,#inv,#ib,#dlg,#set,#sb,#rb,#roomModal'))down=true});
 addEventListener('mouseup',()=>down=false);
+
+// TỰ ĐỘNG LƯU KHI TẮT TAB HOẶC RỜI TRANG
+window.addEventListener('beforeunload', () => {
+  if (run && me) save();
+});
+
 const DESC={Naruto:'Cận chiến, Phân Thân & Hóa Vĩ Thú hồi máu cực trâu.',Sasuke:'Chidori, Hỏa Cầu, Amaterasu & Giáp Susanoo giảm sát thương.',Kakashi:'Raikiri, Tường Đá, Kamui hút địch & bão Lôi Thần.'};
 for(const n of PLAY){const d=document.createElement('div');d.className='card';d.innerHTML=`<canvas id="pv${n}" width="60" height="78"></canvas><h3>${n}</h3><p>${DESC[n]}</p>`;d.onclick=()=>pick(n);$('cards').appendChild(d)}
 let pf=0;setInterval(()=>{pf^=1;for(const n of PLAY){const g=$('pv'+n).getContext('2d');g.imageSmoothingEnabled=false;g.clearRect(0,0,60,78);g.drawImage(SPR[n][pf],0,pf?-2:0,60,78)}},320);
@@ -719,13 +780,165 @@ async function pick(n){if(picking)return;picking=1;me=mk(n,W/2,W/2,0,currentAcco
 </script>
 <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
 <script>
-let socket=null;
-try{socket=io(API_BASE,{withCredentials:true,transports:['websocket','polling']});
- socket.on('connect_error',e=>console.warn('Socket:',e&&e.message));
- socket.on('server_full',m=>alert(m));
- socket.on('updatePlayers',p=>{window.netPlayers=p});
-}catch(e){console.warn('Socket.IO không khả dụng',e)}
-function sendMovement(x,y){if(socket&&socket.connected)socket.emit('playerMovement',{x,y})}
+/* ===== CLIENT MULTIPLAYER ===== */
+let socket = null, joined = false, lastRoom = '', lastBy = '', lastByT = -999;
+const G = new Map(), NPJ = [], BUF = [];
+const guestName = 'Khach' + (Math.random() * 900 + 100 | 0);
+const curRoom = () => dg ? 'raid' : lobby ? 'lobby' : 'world';
+const canHit = () => !lobby && !dg && !me.dead;
+
+try {
+  socket = io(API_BASE, { withCredentials: true, transports: ['websocket', 'polling'] });
+  socket.on('connect', () => { 
+    joined = false;
+    socket.emit('join', {
+      name: guest ? guestName : currentAccount,
+      char: me ? me.char : 'Naruto',
+      account: currentAccount,
+      roomId: currentRoomId,
+      gameData: getSavePayload()
+    });
+  });
+  socket.on('connect_error', e => console.warn('Socket:', e && e.message));
+  socket.on('server_full', m => alert(m));
+  socket.on('feed', m => banner('⚔ ' + m));
+  socket.on('players', arr => {
+    const seen = new Set();
+    for (const d of arr) {
+      seen.add(d.id);
+      const { x, y, ...r } = d;
+      let g = G.get(d.id);
+      if (!g) {
+        g = { x, y, anim: 0, dmgM: 1, buff: {}, xp: 0, kills: 0, bot: 1, maxChakra: 100, chakra: 100, arm: null };
+        G.set(d.id, g);
+      }
+      Object.assign(g, r); g.tx = x; g.ty = y;
+    }
+    for (const id of G.keys()) if (!seen.has(id)) G.delete(id);
+  });
+  socket.on('fire', m => {
+    const o = G.get(m.id);
+    if (!o || NPJ.length > 600) return;
+    for (const q of m.a)
+      NPJ.push({ x: q[0], y: q[1], vx: q[2], vy: q[3], dmg: q[4], col: q[5], size: q[6],
+                 life: q[7], exp: q[8], pierce: q[9], fx: q[10], o, hit: 0 });
+  });
+} catch (e) { console.warn('Socket.IO không khả dụng', e); }
+
+/* --- mỗi frame game --- */
+const _update = update;
+update = function () {
+  _update();
+  if (!me || !run) return;
+  const rm = curRoom();
+  if (rm !== lastRoom) { lastRoom = rm; G.clear(); NPJ.length = 0; }
+
+  // gom đạn của mình để gửi đi
+  for (const p of PJ) if (p.o === me && !p.sent) {
+    p.sent = 1;
+    if (rm !== 'raid' && BUF.length < 40)
+      BUF.push([p.x | 0, p.y | 0, +p.vx.toFixed(2), +p.vy.toFixed(2),
+        Math.round(p.dmg * me.dmgM * (me.buff.ult > 0 ? 1.3 : 1)),
+        p.col, p.size, p.life, p.exp || 0, p.pierce ? 1 : 0, p.fx || '']);
+  }
+
+  // nội suy vị trí người chơi khác
+  for (const g of G.values()) {
+    const dx = g.tx - g.x, dy = g.ty - g.y;
+    if (Math.hypot(dx, dy) > 400) { g.x = g.tx; g.y = g.ty; }
+    else { g.x += dx * .3; g.y += dy * .3; }
+    if (Math.abs(dx) + Math.abs(dy) > 1) g.anim += .18;
+  }
+
+  // đạn của người khác -> chỉ tự tính sát thương lên CHÍNH MÌNH (PvP)
+  for (let i = NPJ.length - 1; i >= 0; i--) {
+    const p = NPJ[i];
+    p.x += p.vx; p.y += p.vy;
+    let end = --p.life <= 0, boom = false;
+    if (!end && !p.hit && canHit() && Math.hypot(me.x - p.x, me.y - p.y) < me.r + p.size) {
+      lastBy = p.o.name; lastByT = fr;
+      if (p.exp) { boom = true; end = true; }
+      else {
+        p.hit = 1;
+        dmg(me, p.dmg, p.o);
+        hitfx(me, { fx: p.fx === 'chain' ? '' : p.fx, o: p.o, dmg: p.dmg });
+        burst(p.x, p.y, p.col, 6);
+        if (!p.pierce) end = true;
+      }
+    }
+    if (boom) {
+      ring(p.x, p.y, p.exp, p.col); burst(p.x, p.y, p.col, 20);
+      dmg(me, p.dmg, p.o);
+    }
+    if (end) NPJ.splice(i, 1);
+  }
+
+  // bảng xếp hạng gồm cả người chơi thật lân cận
+  if (fr % 30 === 0) {
+    const L = [
+      ...F.filter(f => !f.mob && !f.boss).map(f => ({ n: f === me ? 'Bạn' : f.name, s: f.score, me: f === me })),
+      ...[...G.values()].map(g => ({ n: g.name, s: g.score, me: 0 }))
+    ].sort((a, b) => b.s - a.s).slice(0, 6);
+    $('lb').innerHTML = '<b>TOP NINJA</b>' + L.map(e =>
+      `<div style="color:${e.me ? '#69f0ae' : '#fff'}"><span>${e.n}</span><span>${e.s}</span></div>`).join('');
+  }
+};
+
+/* --- vẽ người chơi khác + đạn --- */
+const _render = render;
+render = function () {
+  _render();
+  if (!me || !run) return;
+  X.save(); X.translate(-cam.x | 0, -cam.y | 0);
+  for (const g of G.values()) {
+    if (g.dead || g.x < cam.x - 150 || g.x > cam.x + C.width + 150 || g.y < cam.y - 200 || g.y > cam.y + C.height + 150) continue;
+    const fm = Math.sin(g.anim) > 0 ? 1 : 0, spr = SPR[g.char];
+    if (!spr) continue;
+    X.fillStyle = 'rgba(0,0,0,.35)'; X.fillRect(g.x - 14, g.y + 12, 28, 6);
+    X.save(); X.translate(g.x, g.y - 26 + (fm ? -2 : 0)); X.scale(g.face, 1);
+    X.drawImage(spr[fm], -15, 0); X.restore();
+    const y = g.y - 38;
+    X.fillStyle = '#000'; X.fillRect(g.x - 21, y - 1, 42, 7);
+    X.fillStyle = '#42a5f5'; X.fillRect(g.x - 20, y, 40 * Math.max(0, g.hp / g.maxHp), 5);
+    X.fillStyle = '#fff'; X.font = 'bold 11px sans-serif'; X.textAlign = 'center';
+    X.fillText(g.name + ' ' + g.lvl, g.x, y - 5);
+  }
+  for (const p of NPJ) {
+    const s = p.size;
+    X.globalCompositeOperation = 'lighter'; X.globalAlpha = .25; X.fillStyle = p.col;
+    X.beginPath(); X.arc(p.x, p.y, s * 2.6, 0, 6.28); X.fill();
+    X.globalAlpha = 1; X.fillRect(p.x - s, p.y - s, s * 2, s * 2);
+    X.globalCompositeOperation = 'source-over'; X.fillStyle = '#fff'; X.fillRect(p.x - s / 2, p.y - s / 2, s, s);
+  }
+  X.restore();
+  if (!lobby && !dg) { // minimap
+    const k = 130 / W; M.fillStyle = '#40c4ff';
+    for (const g of G.values()) M.fillRect(g.x * k - 2, g.y * k - 2, 4, 4);
+  }
+};
+
+/* --- ghi nhận người hạ gục mình --- */
+const _death = deathScreen;
+deathScreen = function () {
+  if (socket && socket.connected) socket.emit('died', { by: fr - lastByT < 300 ? lastBy : '' });
+  _death();
+};
+
+/* --- gửi trạng thái ~20 lần/giây --- */
+setInterval(() => {
+  if (!socket || !socket.connected || typeof me === 'undefined' || !me || !run) return;
+  socket.emit('state', {
+    x: me.x | 0, y: me.y | 0, hp: me.hp | 0, maxHp: me.maxHp, lvl: me.lvl, score: me.score,
+    face: me.face, room: curRoom(), char: me.char, dead: me.dead ? 1 : 0,
+    gameData: getSavePayload()
+  });
+  if (BUF.length) socket.emit('fire', BUF.splice(0, 12));
+}, 50);
+
+// Tự động sao lưu dữ liệu mỗi 10 giây
+setInterval(() => {
+  if (run && me) save();
+}, 10000);
 </script>
 </body>
 </html>
