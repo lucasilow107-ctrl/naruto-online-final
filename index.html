@@ -185,7 +185,7 @@ const $=id=>document.getElementById(id),C=$('c'),X=C.getContext('2d'),M=$('mm').
 /* ---------- Server account system: GitHub Pages -> Render ---------- */
 const RENDER_URL='https://naruto-online-auth-login.onrender.com';
 const API_BASE=RENDER_URL.replace(/\/+$/,'');
-let currentAccount=null;
+let currentAccount=null, saveBusy=false, lastSaveSent=0, lastNetX=null, lastNetY=null;
 function authMsg(t,ok=false){const e=$('authMsg');if(!e)return;e.textContent=t||'';e.classList.toggle('ok',!!ok)}
 function showAuth(mode='login'){$('auth').style.display='flex';$('start').style.display='none';$('loginForm').style.display=mode==='login'?'flex':'none';$('registerForm').style.display=mode==='register'?'flex':'none';$('tabLogin').classList.toggle('active',mode==='login');$('tabRegister').classList.toggle('active',mode==='register');authMsg('')}
 async function api(url,options={}){const target=/^https?:\/\//i.test(url)?url:API_BASE+url;const headers={...(options.headers||{})};if(options.body!==undefined&&!headers['Content-Type'])headers['Content-Type']='application/json';const r=await fetch(target,{credentials:'include',...options,headers});let d={};try{d=await r.json()}catch(e){}if(!r.ok)throw new Error(d.error||'Lỗi máy chủ.');return d}
@@ -196,6 +196,7 @@ function enterGame(){if(!currentAccount)return;$('auth').style.display='none';$(
 async function logoutAccount(){try{await api('/api/logout',{method:'POST'})}catch(e){}currentAccount=null;run=false;location.reload()}
 async function restoreSession(){try{const d=await api('/api/me');if(d.loggedIn){currentAccount=d.username;$('auth').style.display='none';$('start').style.display='flex';return}}catch(e){authMsg('Không kết nối được máy chủ. Hãy kiểm tra URL Render.')}showAuth('login')}
 restoreSession();
+setInterval(()=>{if(run&&currentAccount&&me&&Date.now()-lastSaveSent>8000)save()},10000);
 
 const W=40000,WR=20000,SAFE_R=1100,S=3,rnd=(a,b)=>a+Math.random()*(b-a);
 let cam={x:0,y:0},keys={},ms={x:0,y:0,wx:0,wy:0},run=false,shake=0,down=false,fr=0,me;
@@ -390,8 +391,9 @@ function bossDead(t,s){txt(t.x,t.y-80,'BOSS HẠ GỤC!','#ffd54f');ring(t.x,t.y
 let sel=null;
 function inv(){const e=$('inv'),o=e.style.display==='flex';e.style.display=o?'none':'flex';if(!o)renderInv()}
 async function save(){
- if(!currentAccount||!me)return;
- try{await api('/api/save',{method:'POST',body:JSON.stringify({character:me.char,data:{i:me.inv,s:me.sl,k:me.kunai,a:me.armor,r:me.ryo}})})}catch(e){console.warn('Save failed:',e.message)}
+ if(!currentAccount||!me||saveBusy)return;
+ saveBusy=true;
+ try{await api('/api/save',{method:'POST',body:JSON.stringify({character:me.char,data:{i:me.inv,s:me.sl,k:me.kunai,a:me.armor,r:me.ryo}})})}catch(e){console.warn('Save failed:',e.message)}finally{saveBusy=false;lastSaveSent=Date.now()}
 }
 async function load(){
  if(!currentAccount||!me)return;
@@ -571,7 +573,7 @@ function ai(f){if(f.boss)return bossAI(f);if(f.mob)return mobAI(f);let t=near1(f
   if(d<260&&d>90&&Math.random()<.01)useSkill(f,0,a)}
  else{if(f.wt--<=0){f.wa=rnd(0,6.28);f.wt=90}mx=Math.cos(f.wa)*.6;my=Math.sin(f.wa)*.6}
  move(f,mx,my)}
-function update(){fr++;if(!lobby&&!dg){if(--wbT<=0&&!F.some(f=>f.wb)){spawnWB();wbT=21600}if(--bsT<=0){bsT=rnd(7200,18000);spawnBossRand()}if(fr%15==0)stream();if(fr%30==0)for(let i=0;i<OR.length;i++)if(Math.hypot(OR[i].x-me.x,OR[i].y-me.y)>2200)OR[i]=newOrb();if(inSafe(me)){me.hp=Math.min(me.maxHp,me.hp+.35);me.chakra=Math.min(me.maxChakra,me.chakra+.4)}}if(dg)dgTick();for(const r of RG)r.t--;RG=RG.filter(r=>r.t>0);for(const l of LN)l.t--;LN=LN.filter(l=>l.t>0);flash*=.9;for(let i=PO.length-1;i>=0;i--)if(--PO[i].t<=0)PO.splice(i,1);
+function update(){fr++;if(me&&window.__socketReady&&run){if(lastNetX===null||Math.abs(me.x-lastNetX)>4||Math.abs(me.y-lastNetY)>4){sendMovement(me.x,me.y);lastNetX=me.x;lastNetY=me.y}}if(!lobby&&!dg){if(--wbT<=0&&!F.some(f=>f.wb)){spawnWB();wbT=21600}if(--bsT<=0){bsT=rnd(7200,18000);spawnBossRand()}if(fr%15==0)stream();if(fr%30==0)for(let i=0;i<OR.length;i++)if(Math.hypot(OR[i].x-me.x,OR[i].y-me.y)>2200)OR[i]=newOrb();if(inSafe(me)){me.hp=Math.min(me.maxHp,me.hp+.35);me.chakra=Math.min(me.maxChakra,me.chakra+.4)}}if(dg)dgTick();for(const r of RG)r.t--;RG=RG.filter(r=>r.t>0);for(const l of LN)l.t--;LN=LN.filter(l=>l.t>0);flash*=.9;for(let i=PO.length-1;i>=0;i--)if(--PO[i].t<=0)PO.splice(i,1);
  for(const f of F){f.atk--;if(f.hf>0)f.hf--;for(let i=0;i<6;i++)if(f.cd[i]>0)f.cd[i]=Math.max(0,f.cd[i]-1/60);
   for(const k in f.buff)if(f.buff[k]>0)f.buff[k]--;
   f.chakra=Math.min(f.maxChakra,f.chakra+(f.buff.ult>0?.3:.12));
@@ -686,7 +688,10 @@ async function pick(n){me=mk(n,W/2,W/2,0,currentAccount||'Bạn');F=[me];
 <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
 <script>
 const socket=io(API_BASE,{withCredentials:true,transports:['websocket','polling']});
+window.__socketReady=false;
 socket.on('connect_error',err=>{if(err&&err.message==='UNAUTHORIZED'){currentAccount=null;showAuth('login')}});
+socket.on('connect',()=>{window.__socketReady=true});
+socket.on('disconnect',()=>{window.__socketReady=false});
 socket.on('auth_ok',data=>{if(data&&data.username)currentAccount=data.username});
 socket.on('server_full',msg=>alert(msg));
 socket.on('updatePlayers',serverPlayers=>console.log('Players:',serverPlayers));
