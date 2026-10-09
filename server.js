@@ -8,9 +8,7 @@ const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] }
-});
+const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'users_db.json');
@@ -19,71 +17,61 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// --- CƠ SỞ DỮ LIỆU TẬP TIN JSON ---
 function loadDB() {
   if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, JSON.stringify({ users: {} }, null, 2));
-  try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } 
-  catch (e) { return { users: {} }; }
+  try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch (e) { return { users: {} }; }
 }
-
 function saveDB(db) {
-  try { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); } 
-  catch (e) { console.error("Lỗi ghi DB:", e); }
+  try { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); } catch (e) {}
 }
 
 const sessions = new Map();
+const rooms = new Map();
+const alliances = new Map(); // Lưu thông tin liên minh
 
-// API Đăng ký
+// --- NIGHT MARKET LOGIC ---
+let nightMarketActive = false;
+let nightMarketTimer = 1800; // 30 phút xuất hiện 1 lần
+setInterval(() => {
+  nightMarketTimer--;
+  if (nightMarketTimer <= 0) {
+    nightMarketActive = !nightMarketActive;
+    nightMarketTimer = nightMarketActive ? 900 : 1800; // 15 phút mở, 30 phút đóng
+    io.emit('night_market_status', { active: nightMarketActive, timeLeft: nightMarketTimer });
+  }
+}, 1000);
+
 app.post('/api/register', async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password || username.length < 3) {
-    return res.status(400).json({ error: "Tên tài khoản tối thiểu 3 ký tự." });
-  }
-  const db = loadDB();
-  const uKey = username.toLowerCase();
+  if (!username || !password || username.length < 3) return res.status(400).json({ error: "Tên ngắn quá!" });
+  const db = loadDB(), uKey = username.toLowerCase();
   if (db.users[uKey]) return res.status(400).json({ error: "Tài khoản đã tồn tại." });
-
   const hash = await bcrypt.hash(password, 10);
   db.users[uKey] = { username: uKey, passwordHash: hash, saves: {} };
   saveDB(db);
   return res.json({ ok: true, username: uKey });
 });
 
-// API Đăng nhập
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
-  const db = loadDB();
-  const uKey = (username || '').toLowerCase();
-  const user = db.users[uKey];
-
-  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-    return res.status(400).json({ error: "Sai tên tài khoản hoặc mật khẩu." });
-  }
-
+  const db = loadDB(), uKey = (username || '').toLowerCase(), user = db.users[uKey];
+  if (!user || !(await bcrypt.compare(password, user.passwordHash))) return res.status(400).json({ error: "Sai tài khoản/mật khẩu." });
   const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
   sessions.set(token, uKey);
   return res.json({ ok: true, username: uKey, token });
 });
 
-// API Kiểm tra phiên
 app.get('/api/me', (req, res) => {
-  const auth = req.headers.authorization;
-  const token = auth ? auth.replace('Bearer ', '') : null;
-  if (token && sessions.has(token)) {
-    return res.json({ loggedIn: true, username: sessions.get(token) });
-  }
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  if (token && sessions.has(token)) return res.json({ loggedIn: true, username: sessions.get(token) });
   res.json({ loggedIn: false });
 });
 
-// API Lưu thủ công
 app.post('/api/save', (req, res) => {
   const { character, data } = req.body;
-  const auth = req.headers.authorization;
-  const token = auth ? auth.replace('Bearer ', '') : null;
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
   const username = sessions.get(token);
-
-  if (!username || !character || !data) return res.status(400).json({ error: "Lỗi lưu dữ liệu" });
-  
+  if (!username) return res.status(400).json({ error: "Lỗi lưu" });
   const db = loadDB();
   if (db.users[username]) {
     if (!db.users[username].saves) db.users[username].saves = {};
@@ -91,134 +79,82 @@ app.post('/api/save', (req, res) => {
     saveDB(db);
     return res.json({ ok: true });
   }
-  res.status(404).json({ error: "Không tìm thấy tài khoản" });
+  res.status(404).json({ error: "Không thấy user" });
 });
 
-// API Tải dữ liệu
 app.get('/api/save/:char', (req, res) => {
-  const auth = req.headers.authorization;
-  const token = auth ? auth.replace('Bearer ', '') : null;
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
   const username = sessions.get(token);
-  const charName = req.params.char;
-
   if (username) {
     const db = loadDB();
-    if (db.users[username]?.saves?.[charName]) {
-      return res.json({ data: db.users[username].saves[charName] });
-    }
+    if (db.users[username]?.saves?.[req.params.char]) return res.json({ data: db.users[username].saves[req.params.char] });
   }
   res.json({ data: null });
 });
 
-// --- PHÒNG CHƠI CHUNG (ROOMS & SERVERS) ---
-const rooms = new Map();
-
-app.get('/api/rooms', (req, res) => {
-  const list = [];
-  for (const [id, room] of rooms.entries()) {
-    list.push({ id, name: room.name, count: room.players.size });
-  }
-  res.json({ rooms: list });
-});
-
-// --- SOCKET.IO MULTIPLAYER ENGINE ---
 io.on('connection', (socket) => {
-  let pState = {
-    id: socket.id,
-    account: '',
-    room: 'world',
-    name: 'Khách',
-    char: 'Naruto',
-    x: 20000, y: 20000, hp: 100, maxHp: 100, lvl: 1, score: 0, face: 1, dead: 0,
-    gameData: null
-  };
+  let pState = { id: socket.id, account: '', room: 'world', name: 'Khách', char: 'Naruto', x: 20000, y: 20000, hp: 100, maxHp: 100, lvl: 1, score: 0, face: 1, dead: 0, allianceId: null };
+
+  socket.emit('night_market_status', { active: nightMarketActive, timeLeft: nightMarketTimer });
 
   socket.on('join', (data) => {
-    pState.name = data.name || 'Khách';
-    pState.char = data.char || 'Naruto';
-    pState.account = data.account || '';
-    
-    const rId = data.roomId || 'world';
-    pState.room = rId;
-
-    if (!rooms.has(rId)) {
-      rooms.set(rId, { name: data.roomName || `Server ${rId}`, players: new Map() });
-    }
-
-    socket.join(rId);
-    rooms.get(rId).players.set(socket.id, pState);
-    io.to(rId).emit('feed', `${pState.name} đã tham gia Server!`);
-  });
-
-  socket.on('switch_room', ({ roomId, roomName }) => {
-    socket.leave(pState.room);
-    if (rooms.has(pState.room)) {
-      rooms.get(pState.room).players.delete(socket.id);
-    }
-
-    pState.room = roomId;
-    if (!rooms.has(roomId)) {
-      rooms.set(roomId, { name: roomName || `Server ${roomId}`, players: new Map() });
-    }
-
-    socket.join(roomId);
-    rooms.get(roomId).players.set(socket.id, pState);
-    io.to(roomId).emit('feed', `${pState.name} đã tham gia Server!`);
+    pState.name = data.name || 'Khách'; pState.char = data.char || 'Naruto'; pState.account = data.account || '';
+    pState.room = data.roomId || 'world';
+    socket.join(pState.room);
+    io.to(pState.room).emit('feed', `${pState.name} đã tham gia!`);
   });
 
   socket.on('state', (st) => {
     Object.assign(pState, st);
-    if (st.gameData) pState.gameData = st.gameData;
-    const rObj = rooms.get(pState.room);
-    if (rObj) rObj.players.set(socket.id, pState);
+    socket.to(pState.room).emit('player_update', pState);
   });
 
   socket.on('fire', (projectiles) => {
     socket.to(pState.room).emit('fire', { id: socket.id, a: projectiles });
   });
 
-  socket.on('died', (data) => {
-    if (data && data.by) {
-      io.to(pState.room).emit('feed', `${pState.name} bị hạ gục bởi ${data.by}!`);
-    }
+  // REAL-TIME PVP DAMAGE SYNC
+  socket.on('deal_damage', (data) => {
+    // Send hit event to specific target player
+    io.to(data.targetId).emit('take_damage', { dmg: data.dmg, attackerId: socket.id, attackerName: pState.name, fx: data.fx });
   });
 
-  // Đồng bộ danh sách người chơi định kỳ trong phòng
-  const syncTimer = setInterval(() => {
-    const rObj = rooms.get(pState.room);
-    if (rObj) {
-      const plist = Array.from(rObj.players.values());
-      socket.emit('players', plist.filter(p => p.id !== socket.id));
-    }
-  }, 50);
+  // CHAT SYSTEM
+  socket.on('send_chat', (data) => {
+    io.to(pState.room).emit('chat_msg', { sender: pState.name, text: data.text, channel: data.channel, allianceId: pState.allianceId });
+  });
 
-  // TỰ ĐỘNG LƯU KHI OUT GAME / DISCONNECT
+  // LIÊN MINH (ALLIANCE)
+  socket.on('invite_alliance', (targetId) => {
+    io.to(targetId).emit('alliance_invite_req', { fromId: socket.id, fromName: pState.name });
+  });
+
+  socket.on('accept_alliance', (fromId) => {
+    const allianceId = 'ally_' + Date.now();
+    pState.allianceId = allianceId;
+    io.to(fromId).emit('alliance_joined', { allianceId, partnerName: pState.name });
+    socket.emit('alliance_joined', { allianceId, partnerName: 'Đồng đội' });
+  });
+
+  // GIAO DỊCH (TRADE)
+  socket.on('trade_request', (data) => {
+    io.to(data.targetId).emit('trade_offer', { fromId: socket.id, fromName: pState.name, item: data.item });
+  });
+
+  socket.on('trade_accept', (data) => {
+    io.to(data.fromId).emit('trade_completed', { item: data.item, partnerName: pState.name });
+  });
+
   socket.on('disconnect', () => {
-    clearInterval(syncTimer);
-
     if (pState.account && pState.gameData) {
-      const db = loadDB();
-      const uKey = pState.account.toLowerCase();
+      const db = loadDB(), uKey = pState.account.toLowerCase();
       if (db.users[uKey]) {
         if (!db.users[uKey].saves) db.users[uKey].saves = {};
         db.users[uKey].saves[pState.char] = pState.gameData;
         saveDB(db);
-        console.log(`[Auto-Save] Đã tự động lưu tiến trình cho ${uKey} (${pState.char}) khi disconnect.`);
-      }
-    }
-
-    if (rooms.has(pState.room)) {
-      const r = rooms.get(pState.room);
-      r.players.delete(socket.id);
-      if (r.players.size === 0 && pState.room !== 'world') {
-        rooms.delete(pState.room);
-      } else {
-        io.to(pState.room).emit('feed', `${pState.name} đã ngắt kết nối.`);
       }
     }
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Server Naruto RPG Online đang chạy tại http://localhost:${PORT}`);
-});
+server.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
