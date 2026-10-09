@@ -1,38 +1,224 @@
-const http=require('http');
-const crypto=require('crypto');
-const express=require('express');
-const cors=require('cors');
-const {Pool}=require('pg');
-const {Server}=require('socket.io');
-const PORT=Number(process.env.PORT||3000),HOST='0.0.0.0',COOKIE_NAME='nio_session',SESSION_DAYS=30;
-const FRONTEND_URL=String(process.env.FRONTEND_URL||'').replace(/\/+$/,'');
-if(!process.env.DATABASE_URL){console.error('Missing DATABASE_URL');process.exit(1)}
-const app=express(),server=http.createServer(app),allowedOrigins=FRONTEND_URL?[FRONTEND_URL]:[];
-app.use(cors({origin(o,cb){if(!o||allowedOrigins.includes(o))return cb(null,true);cb(new Error('CORS origin not allowed'))},credentials:true}));
-app.use(express.json({limit:'64kb'}));
-const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.NODE_ENV==='production'?{rejectUnauthorized:false}:undefined});
-const io=new Server(server,{cors:{origin:allowedOrigins,credentials:true}});
-async function initDb(){await pool.query(`CREATE TABLE IF NOT EXISTS users(id BIGSERIAL PRIMARY KEY,username TEXT NOT NULL UNIQUE,password_hash TEXT NOT NULL,created_at BIGINT NOT NULL);CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,expires_at BIGINT NOT NULL,created_at BIGINT NOT NULL);CREATE TABLE IF NOT EXISTS saves(user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,character TEXT NOT NULL,data JSONB NOT NULL,updated_at BIGINT NOT NULL,PRIMARY KEY(user_id,character));CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);`);await pool.query('DELETE FROM sessions WHERE expires_at <= $1',[Date.now()])}
-const norm=v=>String(v||'').trim().toLowerCase(),valid=u=>/^[a-z0-9_]{3,20}$/.test(u),tokenHash=t=>crypto.createHash('sha256').update(t).digest('hex');
-function hashPassword(p,s=crypto.randomBytes(16).toString('hex')){return `${s}:${crypto.scryptSync(p,s,64).toString('hex')}`}
-function verifyPassword(p,st){const [s,e]=String(st).split(':');if(!s||!e)return false;const a=Buffer.from(crypto.scryptSync(p,s,64).toString('hex'),'hex'),b=Buffer.from(e,'hex');return a.length===b.length&&crypto.timingSafeEqual(a,b)}
-function cookies(req){const o={};for(const part of String(req.headers.cookie||'').split(';')){const i=part.indexOf('=');if(i>0)o[part.slice(0,i).trim()]=decodeURIComponent(part.slice(i+1).trim())}return o}
-async function newSession(id){const token=crypto.randomBytes(32).toString('base64url'),now=Date.now(),expires=now+SESSION_DAYS*86400000;await pool.query('INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES($1,$2,$3,$4)',[tokenHash(token),id,expires,now]);return{token,expires}}
-function setCookie(res,t,e){res.setHeader('Set-Cookie',`${COOKIE_NAME}=${encodeURIComponent(t)}; Max-Age=${Math.max(0,Math.floor((e-Date.now())/1000))}; Path=/; HttpOnly; Secure; SameSite=None`)}
-function clearCookie(res){res.setHeader('Set-Cookie',`${COOKIE_NAME}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=None`)}
-async function userReq(req){const t=cookies(req)[COOKIE_NAME];if(!t)return null;const {rows}=await pool.query('SELECT s.user_id,s.expires_at,u.username FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1',[tokenHash(t)]);const r=rows[0];if(!r||Number(r.expires_at)<=Date.now()){if(r)await pool.query('DELETE FROM sessions WHERE token_hash=$1',[tokenHash(t)]);return null}return{id:r.user_id,username:r.username}}
-async function auth(req,res,next){try{const u=await userReq(req);if(!u)return res.status(401).json({ok:false,error:'Bạn chưa đăng nhập.'});req.user=u;next()}catch(e){console.error(e);res.status(500).json({ok:false,error:'Không thể xác thực phiên.'})}}
-function saveError(b){if(!b||typeof b!=='object')return'Dữ liệu save không hợp lệ.';if(!/^[A-Za-z0-9_]{1,24}$/.test(String(b.character||'')))return'Tên nhân vật không hợp lệ.';if(!b.data||typeof b.data!=='object'||Array.isArray(b.data))return'Dữ liệu nhân vật không hợp lệ.';if(JSON.stringify(b.data).length>50000)return'Dữ liệu save quá lớn.';return null}
-app.get('/api/health',async(req,res)=>{try{await pool.query('SELECT 1');res.json({ok:true,service:'naruto-rpg-api'})}catch{res.status(503).json({ok:false})}});
-app.get('/api/me',async(req,res)=>{try{const u=await userReq(req);res.json(u?{ok:true,loggedIn:true,username:u.username}:{ok:true,loggedIn:false})}catch(e){console.error(e);res.status(500).json({ok:false,error:'Database error.'})}});
-app.post('/api/register',async(req,res)=>{const u=norm(req.body?.username),p=String(req.body?.password||'');if(!valid(u))return res.status(400).json({ok:false,error:'Tên tài khoản phải 3–20 ký tự, chỉ gồm a-z, 0-9 và _.'});if(p.length<6||p.length>128)return res.status(400).json({ok:false,error:'Mật khẩu phải từ 6 đến 128 ký tự.'});try{const r=await pool.query('INSERT INTO users(username,password_hash,created_at) VALUES($1,$2,$3) RETURNING id,username',[u,hashPassword(p),Date.now()]);const s=await newSession(r.rows[0].id);setCookie(res,s.token,s.expires);res.json({ok:true,username:r.rows[0].username})}catch(e){if(e.code==='23505')return res.status(409).json({ok:false,error:'Tài khoản này đã tồn tại.'});console.error(e);res.status(500).json({ok:false,error:'Không thể tạo tài khoản.'})}});
-app.post('/api/login',async(req,res)=>{const u=norm(req.body?.username),p=String(req.body?.password||'');try{const {rows}=await pool.query('SELECT id,username,password_hash FROM users WHERE username=$1',[u]),r=rows[0];if(!r||!verifyPassword(p,r.password_hash))return res.status(401).json({ok:false,error:'Sai tên tài khoản hoặc mật khẩu.'});const s=await newSession(r.id);setCookie(res,s.token,s.expires);res.json({ok:true,username:r.username})}catch(e){console.error(e);res.status(500).json({ok:false,error:'Không thể đăng nhập.'})}});
-app.post('/api/logout',async(req,res)=>{try{const t=cookies(req)[COOKIE_NAME];if(t)await pool.query('DELETE FROM sessions WHERE token_hash=$1',[tokenHash(t)])}catch(e){console.error(e)}clearCookie(res);res.json({ok:true})});
-app.get('/api/save/:character',auth,async(req,res)=>{const c=String(req.params.character||'');if(!/^[A-Za-z0-9_]{1,24}$/.test(c))return res.status(400).json({ok:false,error:'Tên nhân vật không hợp lệ.'});try{const {rows}=await pool.query('SELECT data,updated_at FROM saves WHERE user_id=$1 AND character=$2',[req.user.id,c]),r=rows[0];res.json({ok:true,data:r?r.data:null,updatedAt:r?Number(r.updated_at):null})}catch(e){console.error(e);res.status(500).json({ok:false,error:'Không thể tải save.'})}});
-app.post('/api/save',auth,async(req,res)=>{const er=saveError(req.body);if(er)return res.status(400).json({ok:false,error:er});try{await pool.query(`INSERT INTO saves(user_id,character,data,updated_at) VALUES($1,$2,$3::jsonb,$4) ON CONFLICT(user_id,character) DO UPDATE SET data=EXCLUDED.data,updated_at=EXCLUDED.updated_at`,[req.user.id,String(req.body.character),JSON.stringify(req.body.data),Date.now()]);res.json({ok:true})}catch(e){console.error(e);res.status(500).json({ok:false,error:'Không thể lưu game.'})}});
-app.delete('/api/save/:character',auth,async(req,res)=>{const c=String(req.params.character||'');if(!/^[A-Za-z0-9_]{1,24}$/.test(c))return res.status(400).json({ok:false,error:'Tên nhân vật không hợp lệ.'});try{await pool.query('DELETE FROM saves WHERE user_id=$1 AND character=$2',[req.user.id,c]);res.json({ok:true})}catch(e){console.error(e);res.status(500).json({ok:false,error:'Không thể xóa save.'})}});
-io.use(async(socket,next)=>{try{const raw=(socket.handshake.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith(COOKIE_NAME+'='));if(!raw)return next(new Error('UNAUTHORIZED'));const t=decodeURIComponent(raw.slice(COOKIE_NAME.length+1));const {rows}=await pool.query('SELECT s.user_id,s.expires_at,u.username FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1',[tokenHash(t)]),r=rows[0];if(!r||Number(r.expires_at)<=Date.now())return next(new Error('UNAUTHORIZED'));socket.user={id:r.user_id,username:r.username};next()}catch(e){console.error(e);next(new Error('UNAUTHORIZED'))}});
-const players=new Map();io.on('connection',socket=>{players.set(socket.id,{id:socket.id,username:socket.user.username,x:0,y:0});socket.emit('auth_ok',{username:socket.user.username});io.emit('updatePlayers',[...players.values()]);socket.on('playerMovement',pos=>{if(!pos||typeof pos.x!=='number'||typeof pos.y!=='number')return;const p=players.get(socket.id);if(!p)return;p.x=Math.max(-50000,Math.min(50000,pos.x));p.y=Math.max(-50000,Math.min(50000,pos.y));socket.broadcast.emit('playerMoved',p)});socket.on('disconnect',()=>{players.delete(socket.id);io.emit('playerLeft',socket.id);io.emit('updatePlayers',[...players.values()])})});
-app.get('/',(req,res)=>res.send('Naruto RPG API is running.'));
-(async()=>{try{await initDb();server.listen(PORT,HOST,()=>console.log(`Naruto RPG API listening on ${PORT}`))}catch(e){console.error('Startup failed:',e);process.exit(1)}})();
-process.on('SIGTERM',async()=>{await pool.end();process.exit(0)});
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const fs = require('fs');
+const path = require('path');
+const bcrypt = require('bcryptjs');
+const cors = require('cors');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: "*", methods: ["GET", "POST"] }
+});
+
+const PORT = process.env.PORT || 3000;
+const DB_FILE = path.join(__dirname, 'users_db.json');
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static(__dirname));
+
+// --- CƠ SỞ DỮ LIỆU TẬP TIN JSON ---
+function loadDB() {
+  if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, JSON.stringify({ users: {} }, null, 2));
+  try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } 
+  catch (e) { return { users: {} }; }
+}
+
+function saveDB(db) {
+  try { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); } 
+  catch (e) { console.error("Lỗi ghi DB:", e); }
+}
+
+const sessions = new Map();
+
+// API Đăng ký
+app.post('/api/register', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password || username.length < 3) {
+    return res.status(400).json({ error: "Tên tài khoản tối thiểu 3 ký tự." });
+  }
+  const db = loadDB();
+  const uKey = username.toLowerCase();
+  if (db.users[uKey]) return res.status(400).json({ error: "Tài khoản đã tồn tại." });
+
+  const hash = await bcrypt.hash(password, 10);
+  db.users[uKey] = { username: uKey, passwordHash: hash, saves: {} };
+  saveDB(db);
+  return res.json({ ok: true, username: uKey });
+});
+
+// API Đăng nhập
+app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body;
+  const db = loadDB();
+  const uKey = (username || '').toLowerCase();
+  const user = db.users[uKey];
+
+  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+    return res.status(400).json({ error: "Sai tên tài khoản hoặc mật khẩu." });
+  }
+
+  const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+  sessions.set(token, uKey);
+  return res.json({ ok: true, username: uKey, token });
+});
+
+// API Kiểm tra phiên
+app.get('/api/me', (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth ? auth.replace('Bearer ', '') : null;
+  if (token && sessions.has(token)) {
+    return res.json({ loggedIn: true, username: sessions.get(token) });
+  }
+  res.json({ loggedIn: false });
+});
+
+// API Lưu thủ công
+app.post('/api/save', (req, res) => {
+  const { character, data } = req.body;
+  const auth = req.headers.authorization;
+  const token = auth ? auth.replace('Bearer ', '') : null;
+  const username = sessions.get(token);
+
+  if (!username || !character || !data) return res.status(400).json({ error: "Lỗi lưu dữ liệu" });
+  
+  const db = loadDB();
+  if (db.users[username]) {
+    if (!db.users[username].saves) db.users[username].saves = {};
+    db.users[username].saves[character] = data;
+    saveDB(db);
+    return res.json({ ok: true });
+  }
+  res.status(404).json({ error: "Không tìm thấy tài khoản" });
+});
+
+// API Tải dữ liệu
+app.get('/api/save/:char', (req, res) => {
+  const auth = req.headers.authorization;
+  const token = auth ? auth.replace('Bearer ', '') : null;
+  const username = sessions.get(token);
+  const charName = req.params.char;
+
+  if (username) {
+    const db = loadDB();
+    if (db.users[username]?.saves?.[charName]) {
+      return res.json({ data: db.users[username].saves[charName] });
+    }
+  }
+  res.json({ data: null });
+});
+
+// --- PHÒNG CHƠI CHUNG (ROOMS & SERVERS) ---
+const rooms = new Map();
+
+app.get('/api/rooms', (req, res) => {
+  const list = [];
+  for (const [id, room] of rooms.entries()) {
+    list.push({ id, name: room.name, count: room.players.size });
+  }
+  res.json({ rooms: list });
+});
+
+// --- SOCKET.IO MULTIPLAYER ENGINE ---
+io.on('connection', (socket) => {
+  let pState = {
+    id: socket.id,
+    account: '',
+    room: 'world',
+    name: 'Khách',
+    char: 'Naruto',
+    x: 20000, y: 20000, hp: 100, maxHp: 100, lvl: 1, score: 0, face: 1, dead: 0,
+    gameData: null
+  };
+
+  socket.on('join', (data) => {
+    pState.name = data.name || 'Khách';
+    pState.char = data.char || 'Naruto';
+    pState.account = data.account || '';
+    
+    const rId = data.roomId || 'world';
+    pState.room = rId;
+
+    if (!rooms.has(rId)) {
+      rooms.set(rId, { name: data.roomName || `Server ${rId}`, players: new Map() });
+    }
+
+    socket.join(rId);
+    rooms.get(rId).players.set(socket.id, pState);
+    io.to(rId).emit('feed', `${pState.name} đã tham gia Server!`);
+  });
+
+  socket.on('switch_room', ({ roomId, roomName }) => {
+    socket.leave(pState.room);
+    if (rooms.has(pState.room)) {
+      rooms.get(pState.room).players.delete(socket.id);
+    }
+
+    pState.room = roomId;
+    if (!rooms.has(roomId)) {
+      rooms.set(roomId, { name: roomName || `Server ${roomId}`, players: new Map() });
+    }
+
+    socket.join(roomId);
+    rooms.get(roomId).players.set(socket.id, pState);
+    io.to(roomId).emit('feed', `${pState.name} đã tham gia Server!`);
+  });
+
+  socket.on('state', (st) => {
+    Object.assign(pState, st);
+    if (st.gameData) pState.gameData = st.gameData;
+    const rObj = rooms.get(pState.room);
+    if (rObj) rObj.players.set(socket.id, pState);
+  });
+
+  socket.on('fire', (projectiles) => {
+    socket.to(pState.room).emit('fire', { id: socket.id, a: projectiles });
+  });
+
+  socket.on('died', (data) => {
+    if (data && data.by) {
+      io.to(pState.room).emit('feed', `${pState.name} bị hạ gục bởi ${data.by}!`);
+    }
+  });
+
+  // Đồng bộ danh sách người chơi định kỳ trong phòng
+  const syncTimer = setInterval(() => {
+    const rObj = rooms.get(pState.room);
+    if (rObj) {
+      const plist = Array.from(rObj.players.values());
+      socket.emit('players', plist.filter(p => p.id !== socket.id));
+    }
+  }, 50);
+
+  // TỰ ĐỘNG LƯU KHI OUT GAME / DISCONNECT
+  socket.on('disconnect', () => {
+    clearInterval(syncTimer);
+
+    if (pState.account && pState.gameData) {
+      const db = loadDB();
+      const uKey = pState.account.toLowerCase();
+      if (db.users[uKey]) {
+        if (!db.users[uKey].saves) db.users[uKey].saves = {};
+        db.users[uKey].saves[pState.char] = pState.gameData;
+        saveDB(db);
+        console.log(`[Auto-Save] Đã tự động lưu tiến trình cho ${uKey} (${pState.char}) khi disconnect.`);
+      }
+    }
+
+    if (rooms.has(pState.room)) {
+      const r = rooms.get(pState.room);
+      r.players.delete(socket.id);
+      if (r.players.size === 0 && pState.room !== 'world') {
+        rooms.delete(pState.room);
+      } else {
+        io.to(pState.room).emit('feed', `${pState.name} đã ngắt kết nối.`);
+      }
+    }
+  });
+});
+
+server.listen(PORT, () => {
+  console.log(`Server Naruto RPG Online đang chạy tại http://localhost:${PORT}`);
+});
