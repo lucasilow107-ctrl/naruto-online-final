@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Naruto .IO Pixel Arena</title>
+<title>Naruto RPG — Làng Lá</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;user-select:none}
@@ -93,27 +93,55 @@ button{font:11px 'Press Start 2P',monospace;padding:14px 18px;background:#ffb300
 .ip{border-radius:18px;padding:18px}.ih b{font-size:14px}.es,.it{border-radius:12px}.it{padding:10px 6px}.x{border-radius:10px}
 #zl,#mm{zoom:var(--us,1)}
 
-#auth{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
-  background:radial-gradient(circle at 50% 25%,#24384a,#070b10 78%);padding:18px}
-.auth-card{width:min(430px,94vw);padding:26px;border-radius:20px;text-align:center;
-  background:linear-gradient(180deg,#132131f5,#0b1119f5);border-color:#4a6a8a}
-.auth-logo{font:clamp(20px,5vw,32px) 'Press Start 2P',monospace;color:#ffb300;
-  text-shadow:3px 3px 0 #c62828}
-.auth-sub{font:11px 'Press Start 2P',monospace;color:#90caf9;margin:10px 0 20px}
-.auth-tabs{display:flex;gap:8px;margin-bottom:16px}
-.auth-tab{flex:1;padding:11px 8px;font-size:10px;background:#1a2938;color:#b9c7d4;
-  border:2px solid #38506a;box-shadow:none}
-.auth-tab.active{background:#ffb300;color:#111;border-color:#ffb300}
-.auth-form{display:flex;flex-direction:column;gap:8px;text-align:left}
-.auth-form label{font-size:12px;color:#cfd8dc;margin-top:4px}
-.auth-form input{width:100%;padding:12px;border:2px solid #334b63;border-radius:9px;
-  background:#081019;color:#fff;font-size:15px;outline:none;user-select:text}
-.auth-form input:focus{border-color:#ffb300}
-.auth-submit{width:100%;margin-top:8px;border-radius:9px}
-#authMsg{min-height:20px;margin-top:12px;color:#ff8a80;font-size:13px;font-weight:700}
-#authMsg.ok{color:#69f0ae}
-.auth-note{margin-top:14px;color:#78909c;font-size:11px;line-height:1.5}
-
+/* ===== GIAO DIỆN PIXEL LÀNG LÁ (KONOHA) ===== */
+:root{--ink:#2a160a;--wood:#7a4a22;--wood2:#4e2d14;--parch:#f3e4b5;--parch2:#e7d094;--leaf:#3f8f3a;--org:#f07f1c;--navy:#2b3a67;--red:#c62828;--gold:#ffcf4a}
+*{image-rendering:pixelated}
+.box{background:var(--wood2);color:var(--parch);border:0;border-radius:0;box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 4px 0 0 #8a5a2e,inset 0 -4px 0 0 #2f1a0b,inset 4px 0 0 0 #6b3f1d,inset -4px 0 0 0 #3a2210}
+#zn,#zl,#hint,#boss,#wbt,.ip,.auth-card,.card,#start .sub{background:var(--parch);color:var(--ink);border:0;border-radius:0;box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 4px 0 0 #fff9,inset 0 -4px 0 0 #c9ad6a,inset 4px 0 0 0 #f9edc8,inset -4px 0 0 0 #d7bb7a}
+button{font:11px 'Press Start 2P','Segoe UI',sans-serif;background:var(--org);color:#fff;border:0;border-radius:0;padding:14px 18px;text-shadow:2px 2px 0 var(--ink);cursor:pointer;box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -6px 0 0 #b85a0c,inset 0 4px 0 0 #ffb066}
+button:hover{filter:brightness(1.12)}button:active{transform:translateY(3px)}
+.x{background:var(--red);padding:9px 11px;font-size:10px;box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -4px 0 0 #8e1b17,inset 0 3px 0 0 #ff8a80}
+.lo{width:100%;margin:6px 0}
+#hud{width:320px;padding:16px;gap:10px}
+#top{position:relative;display:flex;gap:12px;align-items:center;background:var(--navy);padding:10px;box-shadow:inset 0 0 0 3px #0e1633,inset 0 0 0 6px #8fa3c7}
+#top::after{content:'';position:absolute;right:10px;top:8px;width:34px;height:34px;background:var(--lf) center/contain no-repeat}
+#av{width:48px;height:62px;background:#cfe9ff;border:3px solid var(--ink);border-radius:0;padding:0}
+#nm{font:700 11px 'Press Start 2P','Segoe UI',sans-serif;color:#fff;text-shadow:2px 2px 0 #000;margin-bottom:6px}
+#st{font:700 11px 'Segoe UI',sans-serif;color:#fff;gap:8px}#lv{background:var(--org);padding:2px 6px;border:2px solid var(--ink)}
+.bar{height:22px;background:#1a0f08;border:3px solid var(--ink);border-radius:0;box-shadow:none;position:relative}
+.fill{border-radius:0}
+#hpb,#ckb,#xpb{background-image:repeating-linear-gradient(90deg,transparent 0 6px,#0005 6px 8px),linear-gradient(#fff5 0 25%,transparent 25% 75%,#0004 75%)}
+#bhp{background-image:repeating-linear-gradient(90deg,transparent 0 6px,#0005 6px 8px),linear-gradient(#fff5 0 25%,transparent 25% 75%,#0004 75%)!important;background-color:#e53935}
+.bt{font:700 11px/16px 'Segoe UI',sans-serif;color:#fff;text-shadow:1px 1px 0 #000,-1px 1px 0 #000,1px -1px 0 #000,-1px -1px 0 #000}#xp{height:12px}
+#lb{width:200px;font-size:13px;padding:12px 14px;right:14px;top:calc(272px + env(safe-area-inset-top,0px))}
+#lb b{font:9px 'Press Start 2P',monospace;color:var(--gold);margin-bottom:8px;text-shadow:2px 2px 0 #000}#lb div{border-bottom:2px dotted #8a5a2e;padding:3px 0}
+#mm{top:calc(24px + env(safe-area-inset-top,0px));right:34px;width:170px;height:170px;border-radius:50%;border:6px solid var(--wood);background:#0b1a12;box-shadow:0 0 0 4px var(--ink),0 0 0 8px var(--navy),0 0 0 12px var(--ink)}
+#zl{top:calc(224px + env(safe-area-inset-top,0px));right:14px;width:200px;font-size:13px}
+#zn{font:11px/1.6 'Press Start 2P','Segoe UI',sans-serif;color:var(--ink);padding:10px 16px}
+#wbt{color:#b71c1c;font-weight:700}#boss{font-weight:700}#hint{font-weight:700;color:var(--ink)}
+#bar{padding:12px;gap:10px;border-radius:0}
+.sl{width:76px;height:88px;background:var(--parch2);border:4px solid #5b3a1a;border-radius:0;box-shadow:inset 0 0 0 2px #fff6;color:var(--ink)}
+.sl span{color:var(--ink);font-weight:700;font-size:10px}.sl em{background:var(--red);color:#fff;padding:3px 4px;top:0;left:0;font:8px 'Press Start 2P',monospace}
+.sl:hover{border-color:var(--org)}.sl.no{opacity:.5}.cd{background:#000a;color:#ffb066}
+#ib,#sb{width:72px;height:72px;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font:28px 'Segoe UI',sans-serif;color:#fff;border-radius:0;background:var(--leaf);box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -6px 0 0 #2a6a27,inset 0 4px 0 0 #7fd07a}
+#sb{background:var(--navy);box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -6px 0 0 #1b2650,inset 0 4px 0 0 #6b82c0}
+#ib small,#sb small{font:700 10px 'Segoe UI',sans-serif;text-shadow:1px 1px 0 #000}#ib{left:18px}#sb{left:104px}
+.ip{padding:20px}.ih b{font:12px 'Press Start 2P','Segoe UI',sans-serif;color:#b3541e}.ip .sub,.auth-card .sub,#start .sub{color:#5b3a1a}.rw{color:var(--ink)}.rw input{accent-color:var(--org)}
+.es,.it{background:var(--parch2);color:var(--ink);border:3px solid;border-radius:0}.it.on{background:#f7d98a}.es em{color:#b71c1c}
+#dbt button{font:700 15px 'Segoe UI',sans-serif;padding:13px;text-shadow:1px 1px 0 var(--ink)}
+h1{font-family:'Press Start 2P',monospace;color:var(--org);text-shadow:3px 3px 0 var(--navy),-3px -3px 0 var(--navy),3px -3px 0 var(--navy),-3px 3px 0 var(--navy),0 7px 0 var(--ink)}
+#start{display:none}#start .sub{padding:12px 18px;font-weight:600}
+.card{padding:16px}.card h3{color:#b3541e}.card p{color:#5b3a1a}.card canvas{background:#cfe9ff;border:3px solid var(--ink)}
+#auth{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:18px}
+.auth-card{width:min(450px,94vw);padding:26px;text-align:center}
+.auth-logo{display:flex;gap:10px;justify-content:center;align-items:center;font:clamp(16px,4.5vw,26px) 'Press Start 2P',monospace;color:var(--org);text-shadow:3px 3px 0 var(--navy),-2px -2px 0 var(--navy),2px -2px 0 var(--navy),-2px 2px 0 var(--navy)}
+.lf{width:36px;height:36px;image-rendering:pixelated}
+.auth-sub{font:10px 'Press Start 2P',monospace;color:#2e7d32;margin:12px 0 18px}
+.auth-tabs{display:flex;gap:10px;margin-bottom:18px}.auth-tab{flex:1;padding:12px 6px;font-size:10px;background:#8a5a2e;box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -6px 0 0 #5b3a1a,inset 0 4px 0 0 #b98a52}.auth-tab.active{background:var(--org);box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -6px 0 0 #b85a0c,inset 0 4px 0 0 #ffb066}
+.auth-form{display:flex;flex-direction:column;gap:6px;text-align:left}.auth-form label{font-weight:700;font-size:13px;margin-top:4px}
+.auth-form input{width:100%;padding:12px;border:4px solid #5b3a1a;background:#fffbe8;color:var(--ink);font-size:15px;border-radius:0;outline:none;user-select:text}.auth-form input:focus{border-color:var(--org)}
+.auth-submit,.auth-guest{width:100%;margin-top:12px}.auth-guest{background:var(--leaf);box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -6px 0 0 #2a6a27,inset 0 4px 0 0 #7fd07a}
+#authMsg{min-height:20px;margin-top:14px;color:#b71c1c;font-weight:700;font-size:13px}#authMsg.ok{color:#2e7d32}.auth-note{margin-top:12px;color:#6b4a2a;font-size:11px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -135,69 +163,77 @@ button{font:11px 'Press Start 2P',monospace;padding:14px 18px;background:#ffb300
  <div id="warn"></div><div id="wbt" class="box"></div>
  <div id="bar" class="box"></div>
 </div>
-
 <div id="auth">
-  <div class="auth-card box">
-    <div class="auth-logo">NARUTO RPG</div>
-    <div class="auth-sub">PIXEL ARENA</div>
-
-    <div class="auth-tabs">
-      <button id="tabLogin" class="auth-tab active" onclick="showAuth('login')">ĐĂNG NHẬP</button>
-      <button id="tabRegister" class="auth-tab" onclick="showAuth('register')">ĐĂNG KÝ</button>
-    </div>
-
-    <form id="loginForm" class="auth-form" onsubmit="loginAccount(event)">
-      <label>Tên tài khoản</label>
-      <input id="loginUser" autocomplete="username" maxlength="20" placeholder="Nhập tên tài khoản" required>
-      <label>Mật khẩu</label>
-      <input id="loginPass" type="password" autocomplete="current-password" maxlength="64" placeholder="Nhập mật khẩu" required>
-      <button type="submit" class="auth-submit">VÀO GAME</button>
-    </form>
-
-    <form id="registerForm" class="auth-form" style="display:none" onsubmit="registerAccount(event)">
-      <label>Tên tài khoản</label>
-      <input id="regUser" autocomplete="username" maxlength="20" placeholder="3–20 ký tự" required>
-      <label>Mật khẩu</label>
-      <input id="regPass" type="password" autocomplete="new-password" maxlength="64" placeholder="Ít nhất 6 ký tự" required>
-      <label>Nhập lại mật khẩu</label>
-      <input id="regPass2" type="password" autocomplete="new-password" maxlength="64" placeholder="Nhập lại mật khẩu" required>
-      <button type="submit" class="auth-submit">TẠO TÀI KHOẢN</button>
-    </form>
-
-    <div id="authMsg"></div>
-    <div class="auth-note">Tài khoản và dữ liệu save được lưu trên máy chủ Render.</div>
-  </div>
+ <div class="auth-card box">
+  <div class="auth-logo"><img class="lf" alt=""><span>NARUTO RPG</span><img class="lf" alt=""></div>
+  <div class="auth-sub">LÀNG LÁ · KONOHA</div>
+  <div class="auth-tabs"><button id="tabLogin" class="auth-tab active" onclick="showAuth('login')">ĐĂNG NHẬP</button><button id="tabRegister" class="auth-tab" onclick="showAuth('register')">ĐĂNG KÝ</button></div>
+  <form id="loginForm" class="auth-form" onsubmit="loginAccount(event)">
+   <label>Tên tài khoản</label><input id="loginUser" autocomplete="username" maxlength="20" placeholder="Nhập tên tài khoản" required>
+   <label>Mật khẩu</label><input id="loginPass" type="password" autocomplete="current-password" maxlength="64" placeholder="Nhập mật khẩu" required>
+   <button type="submit" class="auth-submit">VÀO LÀNG LÁ</button>
+  </form>
+  <form id="registerForm" class="auth-form" style="display:none" onsubmit="registerAccount(event)">
+   <label>Tên tài khoản</label><input id="regUser" autocomplete="username" maxlength="20" placeholder="3–20 ký tự (a-z, 0-9, _)" required>
+   <label>Mật khẩu</label><input id="regPass" type="password" autocomplete="new-password" maxlength="64" placeholder="Ít nhất 6 ký tự" required>
+   <label>Nhập lại mật khẩu</label><input id="regPass2" type="password" autocomplete="new-password" maxlength="64" placeholder="Nhập lại mật khẩu" required>
+   <button type="submit" class="auth-submit">TẠO TÀI KHOẢN</button>
+  </form>
+  <button type="button" class="auth-guest" onclick="playGuest()">CHƠI KHÁCH (lưu trên máy)</button>
+  <div id="authMsg"></div>
+  <div class="auth-note">Tài khoản và dữ liệu lưu trên máy chủ Render. Máy chủ miễn phí có thể mất ~1 phút để thức dậy.</div>
+ </div>
 </div>
-
 <div id="start">
  <h1>NARUTO RPG<br>OPEN WORLD</h1>
  <div class="sub">WASD di chuyển · Chuột ngắm &amp; click bắn Kunai · Phím 1–6 dùng kỹ năng · I Túi đồ · E tương tác NPC / Cổng Raid · Đánh quái &amp; Boss để rớt đồ — quái càng mạnh (★) càng rớt đồ xịn</div>
  <div class="cards" id="cards"></div>
 </div>
 <div id="dlg"><div class="ip box"><div class="ih"><b id="dtl"></b></div><div class="sub" id="dtx"></div><div id="dbt"></div></div></div>
-<div id="set"><div class="ip box"><div class="ih"><b>⚙ CÀI ĐẶT</b><button class="x" onclick="setp()">✕</button></div><button onclick="logoutAccount()" style="background:#e53935;box-shadow:0 4px 0 #8e1b17;color:#fff">🚪 ĐĂNG XUẤT</button><div id="sc2"></div></div></div>
+<div id="set"><div class="ip box"><div class="ih"><b>⚙ CÀI ĐẶT</b><button class="x" onclick="setp()">✕</button></div><button class="x lo" onclick="logoutAccount()">🚪 ĐĂNG XUẤT</button><div id="sc2"></div></div></div>
 <div id="inv"><div class="ip box"><div class="ih"><b>🎒 TÚI ĐỒ</b><button class="x" onclick="inv()">✕</button></div><div class="sub">Phi tiêu: bấm để trang bị cho chuột trái. Kỹ năng: bấm vật phẩm rồi bấm vào ô 1–6 để thay · ↺ trả về mặc định.</div><div id="eq"></div><div id="ig"></div><div id="dt" class="sub"></div></div></div>
 <div id="over"><h1>BẠN ĐÃ CHẾT</h1><div class="sub" id="ovt"></div><button onclick="resetAll()">BẮT ĐẦU LẠI</button></div>
 
 <script>
 const $=id=>document.getElementById(id),C=$('c'),X=C.getContext('2d'),M=$('mm').getContext('2d');
-
-/* ---------- Server account system: GitHub Pages -> Render ---------- */
+/* ---------- Tài khoản: GitHub Pages -> Render ---------- */
 const RENDER_URL='https://naruto-online-auth-login.onrender.com';
 const API_BASE=RENDER_URL.replace(/\/+$/,'');
-let currentAccount=null, saveBusy=false, lastSaveSent=0, lastNetX=null, lastNetY=null;
+let currentAccount=null,guest=false,picking=0;
 function authMsg(t,ok=false){const e=$('authMsg');if(!e)return;e.textContent=t||'';e.classList.toggle('ok',!!ok)}
 function showAuth(mode='login'){$('auth').style.display='flex';$('start').style.display='none';$('loginForm').style.display=mode==='login'?'flex':'none';$('registerForm').style.display=mode==='register'?'flex':'none';$('tabLogin').classList.toggle('active',mode==='login');$('tabRegister').classList.toggle('active',mode==='register');authMsg('')}
-async function api(url,options={}){const target=/^https?:\/\//i.test(url)?url:API_BASE+url;const headers={...(options.headers||{})};if(options.body!==undefined&&!headers['Content-Type'])headers['Content-Type']='application/json';const r=await fetch(target,{credentials:'include',...options,headers});let d={};try{d=await r.json()}catch(e){}if(!r.ok)throw new Error(d.error||'Lỗi máy chủ.');return d}
-function cleanUsername(v){return String(v||'').trim().toLowerCase()}
-async function registerAccount(ev){ev.preventDefault();const username=cleanUsername($('regUser').value),p=$('regPass').value,p2=$('regPass2').value;if(!/^[a-z0-9_]{3,20}$/.test(username)){authMsg('Tên tài khoản: 3–20 ký tự, chỉ dùng a-z, 0-9, _.');return}if(p.length<6){authMsg('Mật khẩu phải có ít nhất 6 ký tự.');return}if(p!==p2){authMsg('Hai mật khẩu không khớp.');return}try{const d=await api('/api/register',{method:'POST',body:JSON.stringify({username,password:p})});currentAccount=d.username;authMsg('Đăng ký thành công!',true);setTimeout(()=>enterGame(),180)}catch(e){authMsg(e.message)}}
-async function loginAccount(ev){ev.preventDefault();const username=cleanUsername($('loginUser').value),p=$('loginPass').value;try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({username,password:p})});currentAccount=d.username;authMsg('Đăng nhập thành công!',true);setTimeout(()=>enterGame(),180)}catch(e){authMsg(e.message)}}
-function enterGame(){if(!currentAccount)return;$('auth').style.display='none';$('start').style.display='flex'}
-async function logoutAccount(){try{await api('/api/logout',{method:'POST'})}catch(e){}currentAccount=null;run=false;location.reload()}
-async function restoreSession(){try{const d=await api('/api/me');if(d.loggedIn){currentAccount=d.username;$('auth').style.display='none';$('start').style.display='flex';return}}catch(e){authMsg('Không kết nối được máy chủ. Hãy kiểm tra URL Render.')}showAuth('login')}
-restoreSession();
-setInterval(()=>{if(run&&currentAccount&&me&&Date.now()-lastSaveSent>8000)save()},10000);
-
+async function api(url,options={}){const target=/^https?:\/\//i.test(url)?url:API_BASE+url;const headers={...(options.headers||{})};if(options.body!==undefined&&!headers['Content-Type'])headers['Content-Type']='application/json';const r=await fetch(target,{credentials:'include',...options,headers});let d={};try{d=await r.json()}catch(e){}if(!r.ok)throw new Error(d.error||'Lỗi máy chủ ('+r.status+').');return d}
+const cleanUsername=v=>String(v||'').trim().toLowerCase();
+async function registerAccount(ev){ev.preventDefault();const username=cleanUsername($('regUser').value),p=$('regPass').value,p2=$('regPass2').value;
+ if(!/^[a-z0-9_]{3,20}$/.test(username)){authMsg('Tên tài khoản: 3–20 ký tự, chỉ dùng a-z, 0-9, _.');return}
+ if(p.length<6){authMsg('Mật khẩu phải có ít nhất 6 ký tự.');return}if(p!==p2){authMsg('Hai mật khẩu không khớp.');return}
+ try{authMsg('Đang tạo tài khoản...',true);const d=await api('/api/register',{method:'POST',body:JSON.stringify({username,password:p})});currentAccount=d.username||username;guest=false;authMsg('Đăng ký thành công!',true);setTimeout(enterGame,200)}catch(e){authMsg(e.message)}}
+async function loginAccount(ev){ev.preventDefault();const username=cleanUsername($('loginUser').value),p=$('loginPass').value;
+ try{authMsg('Đang đăng nhập...',true);const d=await api('/api/login',{method:'POST',body:JSON.stringify({username,password:p})});currentAccount=d.username||username;guest=false;authMsg('Đăng nhập thành công!',true);setTimeout(enterGame,200)}catch(e){authMsg(e.message)}}
+function playGuest(){guest=true;currentAccount='Khach';enterGame()}
+function enterGame(){if(!currentAccount)return;$('auth').style.display='none';$('start').style.display='flex';try{socket.disconnect();socket.connect()}catch(e){}}
+async function logoutAccount(){try{if(!guest)await api('/api/logout',{method:'POST'})}catch(e){}currentAccount=null;guest=false;run=false;location.reload()}
+async function restoreSession(tries=0){try{const d=await api('/api/me');if(d.loggedIn){currentAccount=d.username;enterGame();return}showAuth('login')}
+ catch(e){if(tries<4){authMsg('Đang đánh thức máy chủ Render... ('+(tries+1)+'/5)',true);setTimeout(()=>restoreSession(tries+1),8000)}else authMsg('Không kết nối được máy chủ. Bạn vẫn có thể bấm CHƠI KHÁCH.')}}
+/* ---------- Pixel Làng Lá: hình nền + biểu tượng lá ---------- */
+function leafIcon(){const c=document.createElement('canvas');c.width=c.height=16;const g=c.getContext('2d'),P=(x,y,q)=>{g.fillStyle=q;g.fillRect(x|0,y|0,1,1)};
+ for(let y=0;y<14;y++){const w=Math.round(Math.sin((y+1)/15*Math.PI)*6);for(let x=-w;x<=w;x++)P(8+x,1+y,x==-w||x==w||y==0||y==13?'#1b5e20':'#43a047')}
+ P(8,14,'#1b5e20');P(8,15,'#1b5e20');for(let i=0;i<46;i++){const a=i*.45,r=i*.11;P(8+Math.cos(a)*r,7+Math.sin(a)*r,'#e8f5e9')}return c.toDataURL()}
+function bgScene(){const c=document.createElement('canvas');c.width=160;c.height=90;const g=c.getContext('2d'),R=(x,y,w,h,q)=>{g.fillStyle=q;g.fillRect(x,y,w,h)};
+ ['#6ec6ff','#8fd3ff','#b0e0ff','#d0eeff','#ffe9b0','#ffd9a0'].forEach((q,i)=>R(0,i*11,160,11,q));R(124,10,10,10,'#fff3b0');
+ [[18,14],[66,22],[108,8]].forEach(([x,y])=>{R(x,y,20,4,'#fff');R(x+3,y-3,11,3,'#fff')});
+ for(let x=0;x<160;x++){const h=16+Math.sin(x*.07)*7+Math.sin(x*.21)*3;R(x,62-h,1,h+30,'#86a98f')}
+ for(let x=30;x<130;x++){const e=Math.min(x-30,130-x),h=Math.min(34,e*1.6+8);R(x,64-h,1,h+30,'#8a7a62')}R(30,60,100,4,'#7a6a52');
+ [52,66,80,94].forEach((x,i)=>{R(x,36,11,14,'#d9b98a');R(x,33,11,5,['#3b2a1a','#e8d37a','#3b2a1a','#3b2a1a'][i]);R(x+2,42,2,2,'#222');R(x+7,42,2,2,'#222');R(x+4,47,4,1,'#a0522d')});
+ R(0,66,160,24,'#4f8a4b');R(0,66,160,2,'#6fae62');
+ for(let i=0;i<9;i++){const x=5+i*17,h=9+(i*7%5)*2;R(x,78-h,13,h,'#ecdcb4');R(x-1,75-h,15,4,'#d9541e');R(x+5,72,3,6,'#6b3f1d');R(x+2,78-h+3,3,3,'#8fd3ff')}
+ R(0,80,160,10,'#6b8f45');for(let i=0;i<20;i++)R(i*8+2,82+(i*5%6),2,2,'#86b05a');
+ [[2,56],[148,54],[136,60]].forEach(([x,y])=>{R(x+3,y+10,3,10,'#5d4037');R(x-2,y,13,12,'#2e7d32');R(x,y-4,9,6,'#43a047')});return c.toDataURL()}
+const LEAF=leafIcon(),BGU=bgScene();
+document.documentElement.style.setProperty('--lf','url('+LEAF+')');
+document.querySelectorAll('.lf').forEach(i=>i.src=LEAF);
+document.head.appendChild(Object.assign(document.createElement('style'),{textContent:'#auth,#start{background:url('+BGU+') center/cover no-repeat;image-rendering:pixelated}#over{background:linear-gradient(#000b,#000d),url('+BGU+') center/cover no-repeat}'}));
+showAuth('login');restoreSession();
 const W=40000,WR=20000,SAFE_R=1100,S=3,rnd=(a,b)=>a+Math.random()*(b-a);
 let cam={x:0,y:0},keys={},ms={x:0,y:0,wx:0,wy:0},run=false,shake=0,down=false,fr=0,me;
 let F=[],PJ=[],PT=[],TX=[],OR=[],CL=[],ZN=[],CH=[],curZ=-1,zt,NP=[],PO=[],RG=[],LN=[],WF=null,dg=null,flash=0,pend=0,BX0=0,BY0=0,BX1=W,BY1=W,DL=[],wp;
@@ -390,15 +426,17 @@ function bossDead(t,s){txt(t.x,t.y-80,'BOSS HẠ GỤC!','#ffd54f');ring(t.x,t.y
 
 let sel=null;
 function inv(){const e=$('inv'),o=e.style.display==='flex';e.style.display=o?'none':'flex';if(!o)renderInv()}
-async function save(){
- if(!currentAccount||!me||saveBusy)return;
- saveBusy=true;
- try{await api('/api/save',{method:'POST',body:JSON.stringify({character:me.char,data:{i:me.inv,s:me.sl,k:me.kunai,a:me.armor,r:me.ryo}})})}catch(e){console.warn('Save failed:',e.message)}finally{saveBusy=false;lastSaveSent=Date.now()}
-}
-async function load(){
- if(!currentAccount||!me)return;
- try{const d=await api('/api/save/'+encodeURIComponent(me.char));const x=d.data||{};if(x.i)me.inv=x.i.filter(k=>IT[k]);if(!me.inv.includes('k0'))me.inv.unshift('k0');(x.s||[]).forEach((id,i)=>{if(id&&IT[id]&&me.inv.includes(id)){me.slots[i]=IT[id];me.sl[i]=id}});if(x.k&&IT[x.k]&&me.inv.includes(x.k))me.kunai=x.k;if(x.a&&IT[x.a]&&me.inv.includes(x.a))setArm(x.a);me.ryo=x.r||0;buildBar();renderInv()}catch(e){console.warn('Load failed:',e.message)}
-}
+const lsKey=()=>'nio_'+(currentAccount||'x')+'_'+me.char;
+async function save(){if(!me)return;const data={i:me.inv,s:me.sl,k:me.kunai,a:me.armor,r:me.ryo};try{localStorage.setItem(lsKey(),JSON.stringify(data))}catch(e){}
+ if(currentAccount&&!guest){try{await api('/api/save',{method:'POST',body:JSON.stringify({character:me.char,data})})}catch(e){console.warn('Save failed:',e.message)}}}
+async function load(){if(!me)return;let x=null;
+ if(currentAccount&&!guest){try{x=(await api('/api/save/'+encodeURIComponent(me.char))).data}catch(e){console.warn('Load failed:',e.message)}}
+ if(!x){try{x=JSON.parse(localStorage.getItem(lsKey())||'null')}catch(e){}}
+ if(!x)return;
+ if(x.i)me.inv=x.i.filter(k=>IT[k]);if(!me.inv.includes('k0'))me.inv.unshift('k0');
+ (x.s||[]).forEach((id,i)=>{if(id&&IT[id]&&me.inv.includes(id)){me.slots[i]=IT[id];me.sl[i]=id}});
+ if(x.k&&IT[x.k]&&me.inv.includes(x.k))me.kunai=x.k;me.ryo=x.r||0;
+ if(x.a&&IT[x.a]&&me.inv.includes(x.a))setArm(x.a);buildBar();renderInv()}
 function equip(i){if(!sel||IT[sel].t!=='s')return;me.slots[i]=IT[sel];me.sl[i]=sel;buildBar();renderInv();save()}
 function reset(i){me.slots[i]=SK[me.char][i];me.sl[i]=null;buildBar();renderInv();save()}
 function pickIt(id){const t=IT[id];if(t.t==='k'){me.kunai=id;save()}else if(t.t==='a')setArm(id);else sel=id;
@@ -513,10 +551,7 @@ function renderSet(){const kb=(l,a,i)=>`<div class="rw"><span>${l}</span><button
 function mus(f,d,t){try{const o=AC.createOscillator(),g=AC.createGain();o.type=t;o.frequency.value=f;g.gain.value=.06*SET.mus;g.gain.exponentialRampToValueAtTime(.0005,AC.currentTime+d);o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+d)}catch(e){}}
 setInterval(()=>{if(!run||!AC||SET.mus<=.01)return;const sc=[0,3,5,7,10,12,15,17],r=[110,98,87,98][mi>>4&3],n=sc[(mi*3+(mi>>2))%8];mi++;mus(r*2**(n/12),.55,'triangle');if(mi%4==0)mus(r/2,1,'sine')},280);
 function deathScreen(){run=false;dlc();$('inv').style.display='none';$('ovt').textContent='Cấp '+me.lvl+' · Điểm '+me.score+' · Hạ '+me.kills+' · Ryo '+me.ryo+'. Cấp độ, kỹ năng và đồ sẽ được đặt lại.';$('over').style.display='flex'}
-async function resetAll(){
-  try{if(currentAccount&&me)await api('/api/save/'+encodeURIComponent(me.char),{method:'DELETE'});}catch(e){console.warn('Reset save failed:',e.message)}
-  location.reload();
-}
+async function resetAll(){try{localStorage.removeItem(lsKey())}catch(e){}if(currentAccount&&!guest&&me){try{await api('/api/save/'+encodeURIComponent(me.char),{method:'DELETE'})}catch(e){}}location.reload()}
 function toWorld(){if(!lobby)return;lobby=false;BX0=BY0=0;BX1=BY1=W;PJ=[];ZN=[];
  if(!world){world=true;F=[me];me.x=me.y=W/2;for(let i=0;i<80;i++)OR.push(newOrb());for(let i=0;i<14;i++)stream();wbT=18000;bsT=rnd(7200,18000)}else{F=WL;WL=null;me.x=wl0.x;me.y=wl0.y}banner('🌍 OPEN WORLD — cẩn thận!')}
 function toLobby(){if(lobby||dg)return;wl0={x:me.x,y:me.y};WL=F;F=[me];lobby=true;BX0=BY0=W/2-800;BX1=BY1=W/2+800;me.x=W/2;me.y=W/2+250;PJ=[];ZN=[];CL=[];me.hp=me.maxHp;me.chakra=me.maxChakra;banner('🏯 Lobby Làng Lá')}
@@ -573,7 +608,7 @@ function ai(f){if(f.boss)return bossAI(f);if(f.mob)return mobAI(f);let t=near1(f
   if(d<260&&d>90&&Math.random()<.01)useSkill(f,0,a)}
  else{if(f.wt--<=0){f.wa=rnd(0,6.28);f.wt=90}mx=Math.cos(f.wa)*.6;my=Math.sin(f.wa)*.6}
  move(f,mx,my)}
-function update(){fr++;if(me&&window.__socketReady&&run){if(lastNetX===null||Math.abs(me.x-lastNetX)>4||Math.abs(me.y-lastNetY)>4){sendMovement(me.x,me.y);lastNetX=me.x;lastNetY=me.y}}if(!lobby&&!dg){if(--wbT<=0&&!F.some(f=>f.wb)){spawnWB();wbT=21600}if(--bsT<=0){bsT=rnd(7200,18000);spawnBossRand()}if(fr%15==0)stream();if(fr%30==0)for(let i=0;i<OR.length;i++)if(Math.hypot(OR[i].x-me.x,OR[i].y-me.y)>2200)OR[i]=newOrb();if(inSafe(me)){me.hp=Math.min(me.maxHp,me.hp+.35);me.chakra=Math.min(me.maxChakra,me.chakra+.4)}}if(dg)dgTick();for(const r of RG)r.t--;RG=RG.filter(r=>r.t>0);for(const l of LN)l.t--;LN=LN.filter(l=>l.t>0);flash*=.9;for(let i=PO.length-1;i>=0;i--)if(--PO[i].t<=0)PO.splice(i,1);
+function update(){fr++;if(!lobby&&!dg){if(--wbT<=0&&!F.some(f=>f.wb)){spawnWB();wbT=21600}if(--bsT<=0){bsT=rnd(7200,18000);spawnBossRand()}if(fr%15==0)stream();if(fr%30==0)for(let i=0;i<OR.length;i++)if(Math.hypot(OR[i].x-me.x,OR[i].y-me.y)>2200)OR[i]=newOrb();if(inSafe(me)){me.hp=Math.min(me.maxHp,me.hp+.35);me.chakra=Math.min(me.maxChakra,me.chakra+.4)}}if(dg)dgTick();for(const r of RG)r.t--;RG=RG.filter(r=>r.t>0);for(const l of LN)l.t--;LN=LN.filter(l=>l.t>0);flash*=.9;for(let i=PO.length-1;i>=0;i--)if(--PO[i].t<=0)PO.splice(i,1);
  for(const f of F){f.atk--;if(f.hf>0)f.hf--;for(let i=0;i<6;i++)if(f.cd[i]>0)f.cd[i]=Math.max(0,f.cd[i]-1/60);
   for(const k in f.buff)if(f.buff[k]>0)f.buff[k]--;
   f.chakra=Math.min(f.maxChakra,f.chakra+(f.buff.ult>0?.3:.12));
@@ -677,26 +712,20 @@ addEventListener('mouseup',()=>down=false);
 const DESC={Naruto:'Cận chiến, Phân Thân & Hóa Vĩ Thú hồi máu cực trâu.',Sasuke:'Chidori, Hỏa Cầu, Amaterasu & Giáp Susanoo giảm sát thương.',Kakashi:'Raikiri, Tường Đá, Kamui hút địch & bão Lôi Thần.'};
 for(const n of PLAY){const d=document.createElement('div');d.className='card';d.innerHTML=`<canvas id="pv${n}" width="60" height="78"></canvas><h3>${n}</h3><p>${DESC[n]}</p>`;d.onclick=()=>pick(n);$('cards').appendChild(d)}
 let pf=0;setInterval(()=>{pf^=1;for(const n of PLAY){const g=$('pv'+n).getContext('2d');g.imageSmoothingEnabled=false;g.clearRect(0,0,60,78);g.drawImage(SPR[n][pf],0,pf?-2:0,60,78)}},320);
-async function pick(n){me=mk(n,W/2,W/2,0,currentAccount||'Bạn');F=[me];
+async function pick(n){if(picking)return;picking=1;me=mk(n,W/2,W/2,0,currentAccount||'Bạn');F=[me];
  me.slots=SK[n].slice();me.sl=[];buildBar();await load();{const g=$('av').getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(SPR[n][0],0,0,60,78)}$('nm').textContent=currentAccount||n;
- 
  spawnNPCs();lobby=true;BX0=BY0=W/2-800;BX1=BY1=W/2+800;me.x=W/2;me.y=W/2+250;try{AC=AC||new AudioContext()}catch(e){};
  $('start').style.display='none';run=true;last=performance.now();requestAnimationFrame(loop)}
 </script>
-</body>
-<!-- Socket.IO client for GitHub Pages -> Render -->
 <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
 <script>
-const socket=io(API_BASE,{withCredentials:true,transports:['websocket','polling']});
-window.__socketReady=false;
-socket.on('connect_error',err=>{if(err&&err.message==='UNAUTHORIZED'){currentAccount=null;showAuth('login')}});
-socket.on('connect',()=>{window.__socketReady=true});
-socket.on('disconnect',()=>{window.__socketReady=false});
-socket.on('auth_ok',data=>{if(data&&data.username)currentAccount=data.username});
-socket.on('server_full',msg=>alert(msg));
-socket.on('updatePlayers',serverPlayers=>console.log('Players:',serverPlayers));
-socket.on('playerMoved',player=>console.log('Player moved:',player));
-function sendMovement(newX,newY){if(socket.connected)socket.emit('playerMovement',{x:newX,y:newY})}
+let socket=null;
+try{socket=io(API_BASE,{withCredentials:true,transports:['websocket','polling']});
+ socket.on('connect_error',e=>console.warn('Socket:',e&&e.message));
+ socket.on('server_full',m=>alert(m));
+ socket.on('updatePlayers',p=>{window.netPlayers=p});
+}catch(e){console.warn('Socket.IO không khả dụng',e)}
+function sendMovement(x,y){if(socket&&socket.connected)socket.emit('playerMovement',{x,y})}
 </script>
 </body>
 </html>
