@@ -146,8 +146,37 @@ h1{font-family:'Press Start 2P',monospace;color:var(--org);text-shadow:3px 3px 0
  <button id="rb" onclick="openRoomModal()">🌐<small>Server</small></button>
  <div id="warn"></div><div id="wbt" class="box"></div>
  <div id="bar" class="box"></div>
+ <div id="ninjaQuick" class="pixel-quick">
+  <button onclick="toggleWorldMap()">🗺 BẢN ĐỒ</button>
+  <button onclick="openRankPanel()">忍 RANK</button>
+  <button onclick="openRaidPanel()">⛩ RAID</button>
+ </div>
 </div>
-
+<div id="worldMapPanel" class="pixel-overlay" style="display:none">
+ <section class="pixel-window map-window">
+  <header class="pixel-header"><span>🗺 BẢN ĐỒ THẾ GIỚI SHINOBI</span><button class="pixel-close" onclick="toggleWorldMap()">✕</button></header>
+  <p class="pixel-desc">Toàn cảnh các vùng đất · Chấm vàng là bạn · Cổng đỏ là khu Raid</p>
+  <canvas id="worldMapCanvas" width="720" height="520"></canvas>
+  <div class="pixel-legend"><span>🟡 Bạn</span><span>🔴 Cổng Raid</span><span>🟢 Làng an toàn</span><span>🔵 Vùng biển</span></div>
+  <div id="mapRegionInfo" class="pixel-desc">Di chuyển trong thế giới để cập nhật vị trí.</div>
+ </section>
+</div>
+<div id="rankPanel" class="pixel-overlay" style="display:none">
+ <section class="pixel-window rank-window">
+  <header class="pixel-header"><span>忍 HỒ SƠ SHINOBI</span><button class="pixel-close" onclick="closePixelPanel('rankPanel')">✕</button></header>
+  <div class="rank-hero"><canvas id="rankEmblem" width="96" height="96"></canvas><div><div id="rankName" class="rank-name">GENIN</div><div id="rankSubtitle" class="pixel-desc">Hành trình bắt đầu</div><div class="rank-progress"><div id="rankProgressFill"></div></div><small id="rankProgressText"></small></div></div>
+  <div id="rankRewards" class="rank-rewards"></div>
+  <p class="pixel-desc">Hoàn thành Raid để tích lũy uy danh. Lên hạng sẽ nhận Ryo, EXP và vật phẩm.</p>
+  <button onclick="openRaidPanel()">⛩ CHỌN NHIỆM VỤ RAID</button>
+ </section>
+</div>
+<div id="raidPanel" class="pixel-overlay" style="display:none">
+ <section class="pixel-window raid-window">
+  <header class="pixel-header"><span>⛩ CỔNG RAID · NHIỆM VỤ LÀNG</span><button class="pixel-close" onclick="closePixelPanel('raidPanel')">✕</button></header>
+  <p class="pixel-desc">Mỗi cấp Shinobi mở thêm thử thách. Hãy chuẩn bị trang bị trước khi vào cổng.</p>
+  <div id="raidList" class="raid-list"></div>
+ </section>
+</div>
 <div id="auth">
  <div class="auth-card box">
   <div class="auth-logo"><img class="lf" alt=""><span>NARUTO RPG</span><img class="lf" alt=""></div>
@@ -463,7 +492,7 @@ function bossAI(f){if(f.wb&&--f.wl<=0){f.dead=true;banner('World Boss đã biế
  if(en&&u==0&&ph==3)dash(f,a,22,c)}
 function bossDead(t,s){txt(t.x,t.y-80,'BOSS HẠ GỤC!','#ffd54f');ring(t.x,t.y,300,t.uc);ring(t.x,t.y,180,'#fff');flash=.5;
  if(t.wb){chest(t.x-40,t.y,rollMyth());if(Math.random()<.5)chest(t.x+40,t.y,rollMyth());chest(t.x,t.y+50,roll(1,3));chest(t.x,t.y-50,roll(1,3));chest(t.x+80,t.y+20,rollT('a',1,3));banner('🏆 WORLD BOSS đã bị hạ gục!');if(s){s.xp+=5000;s.score+=10000;lvlUp(s)}return}
- if(t.dgb){const V=DUN[dg.di];chest(t.x,t.y,V.m1);for(let k=0;k<3;k++)chest(t.x+(k-1)*50,t.y+40,roll(.5,2));chest(t.x,t.y-40,rollT('a',.5,2));dg.done=1;dg.exit={x:W/2,y:W/2};banner('🏆 RAID HOÀN THÀNH! Rương quà đã rơi');return}
+ if(t.dgb){const V=DUN[dg.di];chest(t.x,t.y,V.m1);for(let k=0;k<3;k++)chest(t.x+(k-1)*50,t.y+40,roll(.5,2));chest(t.x,t.y-40,rollT('a',.5,2));dg.done=1;dg.exit={x:W/2,y:W/2};if(typeof awardRaidClear==='function')awardRaidClear(V);banner('🏆 RAID HOÀN THÀNH! Rương quà đã rơi');return}
  chest(t.x-40,t.y,BOSS[t.bi].m1);chest(t.x+40,t.y,roll(1,3));chest(t.x,t.y+40,rollT('a',.8,2));
  if(s){s.xp+=200*(t.bi+1);s.score+=1000;lvlUp(s)}
  if(Math.random()<.25){const di=Math.random()*4|0;PO.push({x:t.x,y:t.y-90,di,t:5400});banner('🌀 Cổng '+DUN[di].n+' xuất hiện!')}
@@ -477,7 +506,7 @@ function getSavePayload(){
   if(!me) return null;
   return {
     i: me.inv, s: me.sl, k: me.kunai, a: me.armor, r: me.ryo,
-    lvl: me.lvl, xp: me.xp, score: me.score
+    lvl: me.lvl, xp: me.xp, score: me.score, rank: me.rank||0, raidClears: me.raidClears||0
   };
 }
 
@@ -487,6 +516,7 @@ async function load(){if(!me)return;let x=null;
  if(currentAccount&&!guest){try{x=(await api('/api/save/'+encodeURIComponent(me.char))).data}catch(e){console.warn('Load failed:',e.message)}}
  if(!x){try{x=JSON.parse(localStorage.getItem(lsKey())||'null')}catch(e){}}
  if(!x)return;
+ me.rank=Math.max(0,Math.min(4,Number(x.rank)||0));me.raidClears=Math.max(0,Number(x.raidClears)||0);
  if(x.i)me.inv=x.i.filter(k=>IT[k]);if(!me.inv.includes('k0'))me.inv.unshift('k0');
  (x.s||[]).forEach((id,i)=>{if(id&&IT[id]&&me.inv.includes(id)){me.slots[i]=IT[id];me.sl[i]=id}});
  if(x.k&&IT[x.k]&&me.inv.includes(x.k))me.kunai=x.k;me.ryo=x.r||0;
@@ -543,7 +573,7 @@ function respawnMe(){me.dead=false;me.hp=me.maxHp*.6;me.buff={};me.dv=null;me.ry
 function spawnMobAt(x,y){const z=zoneOf(x,y),M=MOBS[z],d=M[Math.random()*M.length|0],t=d[4],el=Math.random()<.08+ZN_[z].lv*.006,b=mk('Naruto',x,y,1,d[0]),sc=(2+t*.4)*(el?1.25:1);
  Object.assign(b,{mob:1,def:d,t,elite:el,lvl:t,hp:(40+t*45)*(el?2.5:1),md:(5+t*3)*(el?1.4:1),r:Math.round(sc*6)});b.maxHp=b.hp;WLD().push(b)}
 function spawnNear(k){for(let i=0;i<8;i++){const a=rnd(0,6.28),d=rnd(900,2000),x=me.x+Math.cos(a)*d,y=me.y+Math.sin(a)*d,c=Math.hypot(x-W/2,y-W/2);if(c>WR-150||c<SAFE_R+150)continue;k?spawnBot(x,y):spawnMobAt(x,y);return}}
-function stream(){let n=0,nb=0;for(const f of F){if(f===me||f.boss||f.dgx)continue;const d=Math.hypot(f.x-me.x,f.y-me.y);if(d>3600){f.dead=true;continue}if(d<2400)f.mob?n++:nb++}if(n<46)for(let i=0;i<4;i++)spawnNear(0);if(nb<5)spawnNear(1)}
+function stream(){let n=0,nb=0;for(const f of F){if(f===me||f.boss||f.dgx)continue;const d=Math.hypot(f.x-me.x,f.y-me.y);if(d>5600){f.dead=true;continue}if(d<3400)f.mob?n++:nb++}if(n<72)for(let i=0;i<5;i++)spawnNear(0);if(nb<9)spawnNear(1)}
 function newOrb(){return{x:me.x+rnd(-1600,1600),y:me.y+rnd(-1600,1600),s:rnd(4,7),col:Math.random()<.5?'#00e5ff':'#ffd54f'}}
 let MMC=null,bsT=1e9;function buildMM(){MMC=document.createElement('canvas');MMC.width=MMC.height=130;const g=MMC.getContext('2d');for(let i=0;i<130;i++)for(let j=0;j<130;j++){const x=(i+.5)/130*W,y=(j+.5)/130*W;if(Math.hypot(x-W/2,y-W/2)>WR)continue;g.fillStyle=ZN_[zoneOf(x,y)].mc;g.fillRect(i,j,1,1)}g.strokeStyle='#69f0ae';g.beginPath();g.arc(65,65,SAFE_R/W*130+1,0,6.28);g.stroke()}
 function mobAI(f){let t=nearP(f,f.t>=4?460:360);if(t&&inSafe(t))t=null;if(inSafe(f)){const a=Math.atan2(f.y-W/2,f.x-W/2);f.x+=Math.cos(a)*3;f.y+=Math.sin(a)*3}f.t0=(f.t0||0)+1;
@@ -583,12 +613,12 @@ function talk(n){const k=n.k,no=()=>txt(me.x,me.y-50,'Thiếu Ryo','#f55');
   return dlg(n.n,'Tiến độ: hạ '+q.have+'/'+q.need+' quái vật.',[])}
  dlg(n.n,'Bạn có '+me.ryo+'💰',n.stock.map(id=>[IT[id].n+' ('+RN[IT[id].r]+') — '+PR[IT[id].r]+'💰',()=>{if(me.ryo<PR[IT[id].r])return no();me.ryo-=PR[IT[id].r];addItem(id);talk(n)}]))}
 /* dungeon raid */
-function enterDungeon(di){if(dg)return;WF=F;wp={x:me.x,y:me.y};F=[me];PJ=[];ZN=[];CL=[];dg={di,wave:0,t:90};BX0=BY0=W/2-650;BX1=BY1=W/2+650;me.x=W/2;me.y=W/2+450;me.hp=me.maxHp;me.chakra=me.maxChakra;PO=[];banner('⚔ '+DUN[di].n+' — 15 Wave')}
+function enterDungeon(di){if(dg)return;WF=F;wp={x:me.x,y:me.y};F=[me];PJ=[];ZN=[];CL=[];const raidWaves=[15,17,20,22,25][Math.max(0,Math.min(4,me.rank||0))];dg={di,wave:0,t:90,maxWaves:raidWaves};BX0=BY0=W/2-650;BX1=BY1=W/2+650;me.x=W/2;me.y=W/2+450;me.hp=me.maxHp;me.chakra=me.maxChakra;PO=[];banner('⚔ '+DUN[di].n+' — '+raidWaves+' WAVE · '+RANKS[Math.max(0,Math.min(4,me.rank||0))].name)}
 function leaveDungeon(ok){if(!dg)return;F=WF;WF=null;dg=null;PJ=[];ZN=[];CL=[];BX0=BY0=0;BX1=BY1=W;if(ok){me.x=wp.x;me.y=wp.y}else{me.x=W/2;me.y=W/2}banner('Trở về thế giới')}
-function dgTick(){if(dg.done)return;if(F.some(f=>f!==me&&!f.dead)){dg.t=120;return}if(dg.wave<15&&--dg.t<=0){dg.wave++;spawnWave()}}
-function spawnWave(){const n=dg.wave,V=DUN[dg.di];banner('⚔ Wave '+n+'/15'+(n==15?' — BOSS CUỐI':''));
+function dgTick(){if(dg.done)return;if(F.some(f=>f!==me&&!f.dead)){dg.t=120;return}if(dg.wave<(dg.maxWaves||15)&&--dg.t<=0){dg.wave++;spawnWave()}}
+function spawnWave(){const n=dg.wave,V=DUN[dg.di],limit=dg.maxWaves||15;banner('⚔ Wave '+n+'/'+limit+(n===limit?' — BOSS CUỐI':''));
  const at=()=>{const a=rnd(0,6.28);return[W/2+Math.cos(a)*rnd(300,560),W/2+Math.sin(a)*rnd(300,560)]};
- if(n==15){const b=mk(V.bp,W/2,W/2-400,1,V.bn);Object.assign(b,{boss:1,dgb:1,tm:1,bi:0,r:36,hp:14000,maxHp:14000,dmgM:1,bdr:.15,bk:3,uc:V.col,t0:0});F.push(b)}
+ if(n===limit){const b=mk(V.bp,W/2,W/2-400,1,V.bn);Object.assign(b,{boss:1,dgb:1,tm:1,bi:0,r:36,hp:14000,maxHp:14000,dmgM:1,bdr:.15,bk:3,uc:V.col,t0:0});F.push(b)}
  const c=n==15?4:3+Math.ceil(n*.8),L=(V.lv/3|0)+Math.ceil(n*.7);
  for(let i=0;i<c;i++){const[x,y]=at(),b=mk(V.pal,x,y,1,V.pn);b.dgx=1;b.tm=1;for(let l=0;l<L;l++){b.xp=b.lvl*100;lvlUp(b)}if(n%5==0&&i==0){b.maxHp*=3;b.hp=b.maxHp;b.name='Jonin '+V.pn;b.r=22}F.push(b)}}
 
@@ -633,7 +663,7 @@ function ih(o){const c=icv(o);return`<img class="ic" src="${c.u||(c.u=c.toDataUR
 
 /* ---------- Fighters ---------- */
 const NAMES=['Hinata','Gaara','Lee','Neji','Tenten','Shikamaru','Choji','Kiba','Itachi','Sakura','Ino','Shino','Temari','Obito'];
-function mk(char,x,y,bot,name){return{slots:SK[char]||SK.Naruto,kunai:'k0',inv:['k0'],ryo:0,sl:[],x,y,char,bot,name,hp:100,maxHp:100,chakra:100,maxChakra:100,score:0,kills:0,lvl:1,xp:0,face:1,anim:0,cd:[0,0,0,0,0,0],atk:0,dmgM:1,buff:{},r:16,sd:Math.random()<.5?1:-1,wt:0,wa:0,uc:'#fff'}}
+function mk(char,x,y,bot,name){return{slots:SK[char]||SK.Naruto,kunai:'k0',inv:['k0'],ryo:0,sl:[],x,y,char,bot,name,hp:100,maxHp:100,chakra:100,maxChakra:100,score:0,kills:0,lvl:1,xp:0,rank:0,raidClears:0,face:1,anim:0,cd:[0,0,0,0,0,0],atk:0,dmgM:1,buff:{},r:16,sd:Math.random()<.5?1:-1,wt:0,wa:0,uc:'#fff'}}
 function spawnBot(x,y){const b=mk(['Naruto','Sasuke','Kakashi'][Math.random()*3|0],x,y,1,NAMES[Math.random()*NAMES.length|0]),l=Math.max(0,ZN_[zoneOf(x,y)].lv+(Math.random()*3|0)-1);for(let i=0;i<l;i++){b.xp=b.lvl*100;lvlUp(b)}WLD().push(b)}
 function lvlUp(f){while(f.xp>=f.lvl*100){f.xp-=f.lvl*100;f.lvl++;f.maxHp+=15;f.maxChakra+=10;f.dmgM+=.1;f.hp=f.maxHp;if(!f.bot){txt(f.x,f.y-40,'LEVEL UP!','#ffd54f');burst(f.x,f.y,'#ffd54f',30)}}}
 function dmg(t,a,s){if(t.dead)return;if(t===me&&inSafe(t))return;if(t.buff.dodge>0&&Math.random()<.5){txt(t.x,t.y-30,'MISS','#fff');return}
@@ -940,5 +970,160 @@ setInterval(() => {
   if (run && me) save();
 }, 10000);
 </script>
+
+<style>
+/* KONOHA PIXEL HUD OVERHAUL */
+:root{--konoha-ink:#24150d;--konoha-wood:#75431f;--konoha-gold:#f6c453;--konoha-paper:#f5e6bd;--konoha-red:#b72f27;--konoha-leaf:#4c8a3c}
+.pixel-quick{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;gap:7px;pointer-events:auto;z-index:3}
+.pixel-quick button{padding:10px 12px;font-size:9px;white-space:nowrap;background:#75431f;color:#fff0c7;border:3px solid #2a170c;box-shadow:inset 0 3px #b98043,inset 0 -4px #42240f,3px 3px #17100b;text-shadow:2px 2px #24150d}
+.pixel-quick button:hover{background:#a95a28;filter:none;transform:translateY(-2px)}
+.pixel-overlay{position:fixed;inset:0;z-index:30;background:rgba(5,10,13,.82);display:flex;align-items:center;justify-content:center;padding:16px;image-rendering:pixelated;backdrop-filter:blur(2px)}
+.pixel-window{width:min(980px,96vw);max-height:92vh;overflow:auto;padding:16px;background:#e7d09a;color:#321d0e;border:5px solid #321d0e;box-shadow:inset 0 0 0 4px #ad8049,inset 0 0 0 8px #f9e9bc,8px 8px 0 #090b0d;image-rendering:pixelated}
+.pixel-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;background:#263d63;color:#ffe19a;border:3px solid #18233c;box-shadow:inset 0 -4px #18233c;font:11px 'Press Start 2P',monospace;line-height:1.8}
+.pixel-close{padding:8px 10px!important;font-size:10px!important;background:#b72f27!important;box-shadow:inset 0 -4px #721b17,2px 2px #24150d!important}
+.pixel-desc{font-size:13px;line-height:1.6;color:#59371d;margin:12px 2px}
+#worldMapCanvas{display:block;width:100%;max-height:60vh;object-fit:contain;background:#182b27;border:4px solid #321d0e;image-rendering:pixelated;box-shadow:inset 0 0 0 3px #c29b58}
+.pixel-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;font-weight:800;padding:10px 0;color:#432719}
+.pixel-legend span{background:#f6e9c7;border:2px solid #8e6539;padding:5px 8px}
+.rank-hero{display:flex;align-items:center;gap:18px;padding:16px 4px}
+#rankEmblem{width:96px;height:96px;image-rendering:pixelated;background:#263d63;border:4px solid #2a170c;box-shadow:inset 0 0 0 4px #e7d09a}
+.rank-name{font:clamp(16px,3vw,24px) 'Press Start 2P',monospace;color:#a43a21;text-shadow:2px 2px #f9e9bc;line-height:1.6}
+.rank-progress{height:18px;background:#392315;border:3px solid #24150d;width:min(460px,62vw);margin:8px 0}
+#rankProgressFill{height:100%;width:0;background:repeating-linear-gradient(90deg,#6da34d 0 12px,#8bc45d 12px 16px);transition:width .25s}
+#rankProgressText{font-size:11px;color:#51331d}
+.rank-rewards{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px;margin:10px 0 16px}
+.rank-reward{background:#f5e6bd;border:3px solid #8e6539;padding:10px;font-size:12px;line-height:1.6;box-shadow:inset 0 -3px #d2b679}
+.raid-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px}
+.raid-card{background:#f5e6bd;border:4px solid #6b4527;padding:12px;box-shadow:inset 0 0 0 2px #d3b577;display:flex;flex-direction:column;gap:8px;min-height:180px}
+.raid-card.locked{filter:saturate(.45);background:#cbbd9d}
+.raid-title{font:10px 'Press Start 2P',monospace;line-height:1.8;color:#8f2e20}
+.raid-card p{font-size:12px;line-height:1.5}
+.raid-card button{margin-top:auto;font-size:9px;padding:12px 8px}
+.raid-card button:disabled{filter:grayscale(1);opacity:.6;cursor:not-allowed}
+#zl{border:3px solid #28180d!important;box-shadow:4px 4px 0 #111!important}
+#hud{border:4px solid #24150d!important;box-shadow:inset 0 0 0 3px #b78043,5px 5px 0 #101010!important}
+#top{border:3px solid #171e36!important;box-shadow:inset 0 0 0 2px #e9c77d!important}
+#lb{border:4px solid #24150d!important;box-shadow:inset 0 0 0 3px #9a6a37,4px 4px 0 #101010!important}
+.sl{box-shadow:inset 0 0 0 2px #fff5,3px 3px 0 #1b120b!important}
+#mm{image-rendering:pixelated}
+@media(max-width:700px){.pixel-quick{top:auto;bottom:calc(102px + env(safe-area-inset-bottom,0px));left:50%;gap:4px}.pixel-quick button{font-size:7px;padding:8px 6px}#hud{transform:scale(.78);transform-origin:top left}#lb{transform:scale(.78);transform-origin:top right;top:180px!important;right:8px!important}#mm{width:118px!important;height:118px!important;top:auto!important;bottom:calc(12px + env(safe-area-inset-bottom,0px))!important;right:8px!important}#zl{top:calc(130px + env(safe-area-inset-top,0px))!important;right:8px!important;width:155px!important;font-size:10px!important}.pixel-window{padding:9px}.pixel-header{font-size:8px;padding:8px}#worldMapCanvas{max-height:52vh}}
+</style>
+<script>
+/* Whole-world cartography + Shinobi rank progression */
+const RANKS=[
+ {name:'GENIN',short:'Genin',need:0,waves:15,ryo:250,xp:350,desc:'Ninja mới tốt nghiệp Học viện',color:'#8d9a9f'},
+ {name:'CHUNIN',short:'Chūnin',need:2,waves:17,ryo:900,xp:900,desc:'Đã chứng minh năng lực qua nhiệm vụ',color:'#4d9b58'},
+ {name:'JONIN',short:'Jōnin',need:5,waves:20,ryo:2200,xp:1800,desc:'Shinobi tinh nhuệ của làng',color:'#4786ce'},
+ {name:'ANBU',short:'ANBU',need:9,waves:22,ryo:5000,xp:3500,desc:'Đội đặc nhiệm tinh anh',color:'#9b64c7'},
+ {name:'KAGE',short:'KAGE',need:14,waves:25,ryo:12000,xp:8000,desc:'Hộ vệ tối cao của Ngũ Đại Quốc',color:'#e6a72e'}
+];
+const RANK_REWARD_NAMES=['Băng Genin','Áo Chūnin','Kunai Jōnin','Mặt nạ ANBU','Áo choàng Kage'];
+function rankIndex(){return Math.max(0,Math.min(RANKS.length-1,Number(me&&me.rank)||0))}
+function awardRaidClear(v){
+ if(!me)return;
+ me.raidClears=(me.raidClears||0)+1;
+ const ri=rankIndex(),reward=RANKS[ri];
+ const bonus=180+ri*160+(dg?dg.maxWaves||15:15)*20;
+ me.ryo=(me.ryo||0)+bonus;
+ me.xp=(me.xp||0)+bonus;
+ me.score=(me.score||0)+500*(ri+1);
+ lvlUp(me);
+ let newRank=ri;
+ if(ri<RANKS.length-1&&me.raidClears>=RANKS[ri+1].need)newRank=ri+1;
+ if(newRank>ri){
+  me.rank=newRank;
+  const r=RANKS[newRank];
+  me.ryo+=r.ryo;me.xp+=r.xp;lvlUp(me);
+  const itemIds=Object.keys(IT).filter(id=>IT[id].r>=Math.min(3,newRank)&&!IT[id].u);
+  if(itemIds.length)addItem(itemIds[Math.random()*itemIds.length|0]);
+  banner('★ THĂNG HẠNG '+r.name+'! +'+r.ryo+' Ryo · +'+r.xp+' EXP');
+  rankFx();
+ }else banner('🎁 RAID CLEAR · +'+bonus+' Ryo · Uy danh '+me.raidClears);
+ save();refreshRankUI();
+}
+function rankFx(){flash=.6;shake=12;burst(me.x,me.y,'#ffd54f',70);ring(me.x,me.y,320,'#ffd54f');ring(me.x,me.y,220,'#fff')}
+function drawRankEmblem(){
+ const c=$('rankEmblem');if(!c)return;const g=c.getContext('2d'),r=RANKS[rankIndex()];
+ g.clearRect(0,0,c.width,c.height);g.fillStyle='#1d3154';g.fillRect(0,0,96,96);
+ for(let y=8;y<88;y+=8)for(let x=8;x<88;x+=8){if((x+y)%16===0){g.fillStyle='#ffffff10';g.fillRect(x,y,4,4)}}
+ // pixel-art Leaf insignia and rank ribbon
+ g.fillStyle=r.color;g.fillRect(20,18,56,8);g.fillRect(16,26,64,8);g.fillRect(20,34,56,8);
+ g.fillStyle='#e7d09a';g.fillRect(26,26,44,8);g.fillRect(34,18,28,8);
+ g.fillStyle='#2e6b3b';g.fillRect(43,26,10,26);g.fillRect(35,34,8,8);g.fillRect(53,34,8,8);
+ g.fillStyle='#f5e6bd';g.fillRect(34,42,28,8);g.fillRect(42,50,12,8);
+ g.fillStyle=r.color;g.fillRect(12,66,72,12);g.fillStyle='#24150d';g.fillRect(20,70,56,4);
+ g.fillStyle='#fff0c7';g.font='bold 8px monospace';g.textAlign='center';g.fillText(r.name,48,88);
+}
+function refreshRankUI(){
+ if(!me)return;const ri=rankIndex(),r=RANKS[ri],next=RANKS[ri+1];
+ if($('rankName'))$('rankName').textContent=r.name;
+ if($('rankSubtitle'))$('rankSubtitle').textContent=r.desc+' · '+(me.raidClears||0)+' Raid hoàn thành';
+ const current=me.raidClears||0,prev=r.need,need=next?next.need:current;
+ const pct=next?Math.max(0,Math.min(100,(current-prev)/(next.need-prev)*100)):100;
+ if($('rankProgressFill'))$('rankProgressFill').style.width=pct+'%';
+ if($('rankProgressText'))$('rankProgressText').textContent=next?`Uy danh: ${current}/${next.need} Raid để lên ${next.name}`:'Đã đạt cấp bậc cao nhất · Kage';
+ if($('rankRewards'))$('rankRewards').innerHTML=RANKS.map((x,i)=>`<div class="rank-reward" style="border-color:${x.color}"><b style="color:${x.color}">${i<=ri?'✦':'◇'} ${x.name}</b><br>Raid cần: ${x.need}<br>Raid mỗi cổng: ${x.waves} wave<br>Thưởng thăng hạng: ${x.ryo.toLocaleString('vi-VN')} Ryo + ${x.xp.toLocaleString('vi-VN')} EXP</div>`).join('');
+ drawRankEmblem();
+}
+function openRankPanel(){if(!me)return;$('rankPanel').style.display='flex';refreshRankUI()}
+function closePixelPanel(id){const e=$(id);if(e)e.style.display='none'}
+function openRaidPanel(){
+ if(!me)return;
+ closePixelPanel('rankPanel');$('raidPanel').style.display='flex';
+ const ri=rankIndex(),waves=RANKS[ri].waves;
+ $('raidList').innerHTML=DUN.map((d,i)=>{
+  const req=Math.max(1,d.lv),unlocked=me.lvl>=req;
+  const village=['LÀNG CÁT','LÀNG SƯƠNG','LÀNG MÂY','LÀNG ĐÁ'][i]||'LÀNG SHINOBI';
+  const tint=[d.col,'#4fc3f7','#fdd835','#a1887f'][i]||d.col;
+  return `<article class="raid-card ${unlocked?'':'locked'}" style="border-color:${tint}">
+   <div class="raid-title" style="color:${tint}">⛩ ${village}</div><h3>${d.n}</h3>
+   <p>Boss: <b>${d.bn}</b><br>Cấp đề nghị: LV ${req}+<br>Độ khó: <b>${waves} wave</b><br>Phần thưởng: Ryo + EXP + rương làng</p>
+   <button ${unlocked?'':'disabled'} onclick="closePixelPanel('raidPanel');enterDungeon(${i})">${unlocked?'⚔ VÀO RAID':'🔒 CẦN LV '+req}</button>
+  </article>`;
+ }).join('');
+}
+function toggleWorldMap(){
+ const p=$('worldMapPanel');const open=p.style.display!=='flex';
+ p.style.display=open?'flex':'none';if(open)drawWholeWorldMap();
+}
+function drawWholeWorldMap(){
+ const c=$('worldMapCanvas');if(!c)return;const g=c.getContext('2d'),w=c.width,h=c.height;
+ g.imageSmoothingEnabled=false;g.fillStyle='#152c28';g.fillRect(0,0,w,h);
+ const cx=w/2,cy=h/2,rad=Math.min(w,h)*.465;
+ // Pixelated world map, sampled from actual game zone generator.
+ const step=3;
+ for(let py=0;py<h;py+=step)for(let px=0;px<w;px+=step){
+  const wx=(px/w)*W,wy=(py/h)*W,dist=Math.hypot(wx-W/2,wy-W/2);
+  if(dist>WR){g.fillStyle='#10263d';g.fillRect(px,py,step,step);continue}
+  const z=zoneOf(wx,wy);g.fillStyle=ZN_[z]?.mc||'#4f8a4b';g.fillRect(px,py,step,step);
+  const hash=((px*73856093)^(py*19349663))>>>0;
+  if(hash%31===0){g.fillStyle='#ffffff18';g.fillRect(px,py,2,2)}
+ }
+ // Sea coast and boundary
+ g.strokeStyle='#8ec7d6';g.lineWidth=4;g.beginPath();g.arc(cx,cy,rad,0,Math.PI*2);g.stroke();
+ g.strokeStyle='#e7d09a';g.lineWidth=2;g.setLineDash([5,5]);g.beginPath();g.arc(cx,cy,rad*.14,0,Math.PI*2);g.stroke();g.setLineDash([]);
+ // region names
+ g.font='bold 12px monospace';g.textAlign='center';g.textBaseline='middle';
+ const labels=[['LÀNG LÁ',.5,.5,'#f7e2a3'],['LÀNG CÁT',.75,.48,'#4a2c15'],['LÀNG SƯƠNG',.26,.48,'#f5f7fa'],['LÀNG MÂY',.5,.22,'#1c2435'],['LÀNG ĐÁ',.5,.78,'#24150d'],['RỪNG LÁ',.35,.32,'#fff0c7'],['AKATSUKI',.7,.7,'#f4d6ff']];
+ for(const [label,x,y,col] of labels){g.fillStyle='#111b';g.fillRect(x*w-42,y*h-9,84,18);g.fillStyle=col;g.fillText(label,x*w,y*h)}
+ // raid gates in each cardinal village
+ const gates=[[.75,.48],[.26,.48],[.5,.22],[.5,.78]];
+ for(const [x,y] of gates){g.fillStyle='#6b1117';g.fillRect(x*w-6,y*h-6,12,12);g.fillStyle='#ff6b54';g.fillRect(x*w-3,y*h-3,6,6)}
+ // Player position maps exact game coordinates.
+ if(me){const px=me.x/W*w,py=me.y/W*h;g.fillStyle='#17100b';g.fillRect(px-7,py-7,14,14);g.fillStyle='#ffe45c';g.fillRect(px-4,py-4,8,8);g.fillStyle='#fff';g.fillRect(px-1,py-1,2,2);g.strokeStyle='#ffe45c';g.lineWidth=2;g.beginPath();g.arc(px,py,10+Math.sin(fr*.12)*2,0,Math.PI*2);g.stroke();const z=lobby?0:dg?-1:zoneOf(me.x,me.y);if($('mapRegionInfo'))$('mapRegionInfo').textContent='Vị trí: '+(lobby?'Lobby Làng Lá':dg?'Raid instance':ZN_[z]?.n||'Vùng chưa khám phá')+' · Tọa độ '+Math.round(me.x)+', '+Math.round(me.y)+' · Bản đồ toàn thế giới';}
+}
+function awardMapHotkeys(e){
+ if(!run)return;const k=e.key.toLowerCase();
+ if(k==='m'&&!e.repeat){e.preventDefault();toggleWorldMap()}
+ if(k==='r'&&!e.repeat&&!e.target.closest('input,textarea')){e.preventDefault();openRankPanel()}
+ if(k==='j'&&!e.repeat&&!e.target.closest('input,textarea')){e.preventDefault();openRaidPanel()}
+}
+addEventListener('keydown',awardMapHotkeys);
+const _originalRenderForMap=render;
+render=function(){_originalRenderForMap();if($('worldMapPanel')?.style.display==='flex'&&fr%8===0)drawWholeWorldMap();if($('rankPanel')?.style.display==='flex'&&fr%30===0)refreshRankUI()};
+const _originalEnterForRank=enterGame;
+enterGame=function(){_originalEnterForRank();setTimeout(()=>{if(me)refreshRankUI()},300)};
+</script>
+
 </body>
 </html>
