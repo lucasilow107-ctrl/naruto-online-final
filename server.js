@@ -11,13 +11,11 @@ const mongoose = require('mongoose');
 
 const app = express();
 const server = http.createServer(app);
-const allowedOrigins = (process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
-const corsOrigin = (origin, callback) => {
-  if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) return callback(null, true);
-  return callback(new Error('Origin is not allowed by FRONTEND_URL'));
-};
 const io = new Server(server, {
-  cors: { origin: corsOrigin, methods: ['GET', 'POST'], credentials: true }
+  cors: {
+    origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(s => s.trim()) : '*',
+    methods: ['GET', 'POST']
+  }
 });
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -41,8 +39,7 @@ const DATABASE_URL = readMongoUri();
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 app.use(cors({
-  origin: corsOrigin,
-  credentials: true,
+  origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(s => s.trim()) : '*',
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -70,7 +67,7 @@ function getToken(req) {
   return match ? match[1].trim() : null;
 }
 function getSessionUsername(token) {
-  if (typeof token !== 'string' || !token) return null;
+  if (!token) return null;
   const session = sessions.get(token);
   if (!session) return null;
   if (session.expiresAt <= Date.now()) {
@@ -214,25 +211,40 @@ app.get('/api/save/:char', requireAuth, async (req, res) => {
 
 // Rooms chỉ nằm trong RAM; khi server restart, phòng sẽ được tạo lại khi có người tham gia.
 const rooms = new Map();
-app.get('/api/rooms', (req, res) => {
-  const list = [];
-  for (const [id, room] of rooms.entries()) {
-    list.push({ id, name: room.name, count: room.players.size });
+const MAIN_WORLD_ROOM = 'naruto-main-world';
+function refreshWorldOwner(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+  // Prefer a connected player currently inside the open world. Otherwise keep the current owner
+  // (or elect the first connected player) so a lobby-only client cannot block world snapshots.
+  const previousOwner = room.worldOwner || null;
+  const worldPlayers = [...room.players.values()].filter(p => p.currentMode === 'world');
+  const preferred = worldPlayers.find(p => p.id === room.worldOwner) || worldPlayers[0] || null;
+  if (preferred) room.worldOwner = preferred.id;
+  else if (!room.worldOwner || !room.players.has(room.worldOwner)) room.worldOwner = room.players.keys().next().value || null;
+  io.to(roomId).emit('world_owner', { id: room.worldOwner });
+  // Preserve the latest authoritative map across owner handoffs.
+  if (room.worldOwner && room.worldSnapshot && room.worldOwner !== previousOwner) {
+    const nextOwner = io.sockets.sockets.get(room.worldOwner);
+    if (nextOwner) nextOwner.emit('world_state', room.worldSnapshot);
   }
-  res.json({ rooms: list });
+}
+app.get('/api/rooms', (req, res) => {
+  const room = rooms.get(MAIN_WORLD_ROOM);
+  res.json({ rooms: [{ id: MAIN_WORLD_ROOM, name: 'Thế giới Naruto chung', count: room ? room.players.size : 0 }] });
 });
 
 function removeSocketFromRoom(socket, pState) {
   const room = rooms.get(pState.room);
   if (!room) return;
   room.players.delete(socket.id);
-  if (room.players.size === 0 && pState.room !== 'world') rooms.delete(pState.room);
+  if (room.players.size === 0 && pState.room !== MAIN_WORLD_ROOM) rooms.delete(pState.room);
   else socket.to(pState.room).emit('feed', `${pState.name} đã ngắt kết nối.`);
 }
 
 io.on('connection', socket => {
   const pState = {
-    id: socket.id, account: '', token: null, room: 'world', name: 'Khách', char: 'Naruto',
+    id: socket.id, account: '', token: null, room: MAIN_WORLD_ROOM, currentMode: 'lobby', name: 'Khách', char: 'Naruto',
     x: 20000, y: 20000, hp: 100, maxHp: 100, lvl: 1, score: 0, face: 1, dead: 0, gameData: null
   };
   socket.data.rpgPlayer = pState;
@@ -247,17 +259,20 @@ io.on('connection', socket => {
       const username = getSessionUsername(token);
       pState.token = username ? token : null;
       pState.account = username || '';
-      const rId = typeof data.roomId === 'string' && data.roomId.trim() ? data.roomId.trim().slice(0, 48) : 'world';
+      const rId = MAIN_WORLD_ROOM;
       const oldRoom = pState.room;
       if (socket.rooms.has(oldRoom) && oldRoom !== rId) socket.leave(oldRoom);
       if (rooms.has(oldRoom)) {
         rooms.get(oldRoom).players.delete(socket.id);
-        if (rooms.get(oldRoom).players.size === 0 && oldRoom !== 'world') rooms.delete(oldRoom);
+        if (rooms.get(oldRoom).players.size === 0 && oldRoom !== MAIN_WORLD_ROOM) rooms.delete(oldRoom);
       }
       pState.room = rId;
-      if (!rooms.has(rId)) rooms.set(rId, { name: typeof data.roomName === 'string' ? data.roomName.slice(0, 48) : `Server ${rId}`, players: new Map() });
+      if (!rooms.has(rId)) rooms.set(rId, { name: 'Thế giới Naruto chung', players: new Map(), worldOwner: null, worldSnapshot: null });
       socket.join(rId);
       rooms.get(rId).players.set(socket.id, pState);
+      const roomNow = rooms.get(rId);
+      if (!roomNow.worldOwner || !roomNow.players.has(roomNow.worldOwner)) roomNow.worldOwner = socket.id;
+      io.to(rId).emit('world_owner', { id: roomNow.worldOwner });
       io.to(rId).emit('feed', `${pState.name} đã tham gia Server!`);
     } catch (err) {
       console.error('[Socket join]', err.message);
@@ -266,23 +281,29 @@ io.on('connection', socket => {
 
   socket.on('switch_room', data => {
     data = data && typeof data === 'object' ? data : {};
-    const roomId = typeof data.roomId === 'string' && data.roomId.trim() ? data.roomId.trim().slice(0, 48) : 'world';
-    const roomName = typeof data.roomName === 'string' ? data.roomName.slice(0, 48) : `Server ${roomId}`;
+    const roomId = MAIN_WORLD_ROOM;
+    const roomName = 'Thế giới Naruto chung';
     socket.leave(pState.room);
     if (rooms.has(pState.room)) {
       rooms.get(pState.room).players.delete(socket.id);
-      if (rooms.get(pState.room).players.size === 0 && pState.room !== 'world') rooms.delete(pState.room);
+      if (rooms.get(pState.room).players.size === 0 && pState.room !== MAIN_WORLD_ROOM) rooms.delete(pState.room);
+      else refreshWorldOwner(pState.room);
     }
     pState.room = roomId;
-    if (!rooms.has(roomId)) rooms.set(roomId, { name: roomName, players: new Map() });
+    if (!rooms.has(roomId)) rooms.set(roomId, { name: roomName, players: new Map(), worldOwner: null, worldSnapshot: null });
     socket.join(roomId);
-    rooms.get(roomId).players.set(socket.id, pState);
+    const nextRoom = rooms.get(roomId);
+    nextRoom.players.set(socket.id, pState);
+    if (!nextRoom.worldOwner || !nextRoom.players.has(nextRoom.worldOwner)) nextRoom.worldOwner = socket.id;
+    io.to(roomId).emit('world_owner', { id: nextRoom.worldOwner });
     io.to(roomId).emit('feed', `${pState.name} đã tham gia Server!`);
   });
 
   socket.on('state', st => {
     if (!st || typeof st !== 'object') return;
     // Chỉ nhận các trường trạng thái cần đồng bộ; không cho client ghi đè id/account/room/token.
+    const previousMode = pState.currentMode;
+    if (typeof st.room === 'string' && ['world', 'lobby', 'raid'].includes(st.room)) pState.currentMode = st.room;
     const allowed = ['name', 'char', 'x', 'y', 'hp', 'maxHp', 'lvl', 'score', 'face', 'dead', 'gameData'];
     for (const key of allowed) {
       if (Object.prototype.hasOwnProperty.call(st, key)) {
@@ -294,6 +315,7 @@ io.on('connection', socket => {
     }
     const room = rooms.get(pState.room);
     if (room) room.players.set(socket.id, pState);
+    if (previousMode !== pState.currentMode) refreshWorldOwner(pState.room);
   });
 
   socket.on('fire', projectiles => {
@@ -301,16 +323,39 @@ io.on('connection', socket => {
     socket.to(pState.room).emit('fire', { id: socket.id, a: projectiles.slice(0, 100) });
   });
 
-  // Đồng bộ hiệu ứng kỹ năng cho người chơi cùng phòng. Đây là VFX; sát thương vẫn phải được đồng bộ riêng.
+  // Chỉ người giữ quyền worldOwner được phát snapshot thế giới để tránh mỗi máy tự chọn một bản khác nhau.
+  socket.on('world_state', data => {
+    const room = rooms.get(pState.room);
+    if (!room || room.worldOwner !== socket.id || !data || typeof data !== 'object') return;
+    const entities = Array.isArray(data.entities) ? data.entities.slice(0, 1200).filter(e => e && typeof e.id === 'string' && Number.isFinite(e.x) && Number.isFinite(e.y)) : [];
+    const snapshot = { mode: data.mode === 'world' ? 'world' : 'other', entities, at: Date.now() };
+    if (snapshot.mode === 'world') room.worldSnapshot = snapshot;
+    socket.to(pState.room).emit('world_state', snapshot);
+  });
+
+  socket.on('world_request_snapshot', () => {
+    const room = rooms.get(pState.room);
+    if (!room || room.worldOwner !== socket.id || !room.worldSnapshot) return;
+    socket.emit('world_state', room.worldSnapshot);
+  });
+
+  // Đồng bộ sát thương lên thực thể chung. Server chỉ chuyển tiếp yêu cầu tới người giữ thế giới.
+  socket.on('world_hit', data => {
+    const room = rooms.get(pState.room);
+    if (!room || !room.worldOwner || room.worldOwner === socket.id || !data || typeof data.id !== 'string') return;
+    const amount = Number(data.damage);
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 1000000) return;
+    const owner = io.sockets.sockets.get(room.worldOwner);
+    if (owner) owner.emit('world_hit', { id: data.id.slice(0, 80), damage: Math.round(amount), attacker: socket.id });
+  });
+
   socket.on('skill_fx', data => {
-    if (!data || !Number.isFinite(Number(data.x)) || !Number.isFinite(Number(data.y))) return;
-    const color = typeof data.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.color) ? data.color : '#80deea';
+    if (!data || !Number.isFinite(data.x) || !Number.isFinite(data.y)) return;
     socket.to(pState.room).emit('skill_fx', {
-      id: socket.id, x: Math.max(-50000, Math.min(50000, Number(data.x))),
-      y: Math.max(-50000, Math.min(50000, Number(data.y))),
-      angle: Number.isFinite(Number(data.angle)) ? Number(data.angle) : 0,
+      x: data.x, y: data.y, angle: Number(data.angle) || 0,
       skill: String(data.skill || 'Kỹ năng').slice(0, 40),
-      char: safeCharacterName(data.char) ? data.char.trim().slice(0, 20) : pState.char, color
+      char: String(data.char || 'Naruto').slice(0, 20),
+      color: /^#[0-9a-fA-F]{6}$/.test(data.color) ? data.color : '#80deea'
     });
   });
 
@@ -379,7 +424,9 @@ io.on('connection', socket => {
     } catch (err) {
       console.error('[Auto-Save]', err.message);
     }
+    const disconnectedRoom = pState.room;
     removeSocketFromRoom(socket, pState);
+    refreshWorldOwner(disconnectedRoom);
   });
 });
 
