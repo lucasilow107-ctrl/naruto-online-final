@@ -1,7 +1,8 @@
 {
-  "name": "naruto-online-io",
-  "version": "2.1.0",
-  "description": "Naruto RPG multiplayer API with MongoDB Atlas authentication and saves",
+  "name": "naruto-online-rpg",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Naruto Online RPG frontend and Node.js Socket.IO API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
