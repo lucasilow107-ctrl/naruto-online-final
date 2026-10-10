@@ -1,45 +1,40 @@
-// server.js
-const express = require("express");
-const http = require("http");
-const cors = require("cors");
-const bcrypt = require("bcryptjs");
-const mongoose = require("mongoose");
-const crypto = require("crypto");
-const { Server } = require("socket.io");
+'use strict';
+
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const cors = require('cors');
+const mongoose = require('mongoose');
 
 const app = express();
 const server = http.createServer(app);
 
-const PORT = process.env.PORT || 3000;
-const DATABASE_URL = process.env.DATABASE_URL;
-const FRONTEND_URL = process.env.FRONTEND_URL || "*";
-
-if (!DATABASE_URL) {
-  console.error("❌ Missing DATABASE_URL. Set it in Render Environment.");
-  process.exit(1);
-}
-
-app.use(cors({
-  origin: FRONTEND_URL === "*"
-    ? "*"
-    : FRONTEND_URL.split(",").map(url => url.trim()),
-  methods: ["GET", "POST", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
-
-app.use(express.json({ limit: "2mb" }));
+const allowedOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map(s => s.trim())
+  : '*';
 
 const io = new Server(server, {
   cors: {
-    origin: FRONTEND_URL === "*"
-      ? "*"
-      : FRONTEND_URL.split(",").map(url => url.trim()),
-    methods: ["GET", "POST"],
-    credentials: false
+    origin: allowedOrigins,
+    methods: ['GET', 'POST']
   }
 });
 
-// ==================== DATABASE ====================
+const PORT = Number(process.env.PORT) || 3000;
+const DATABASE_URL = process.env.DATABASE_URL;
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.use(express.json({ limit: '1mb' }));
+app.use(express.static(__dirname));
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -47,456 +42,654 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true,
     lowercase: true,
-    trim: true
+    trim: true,
+    minlength: 3,
+    maxlength: 24
   },
-  password: {
+  passwordHash: {
     type: String,
     required: true
   },
   saves: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
-}, { timestamps: true });
+}, { minimize: false });
 
-const User = mongoose.model("User", userSchema);
+const User = mongoose.models.User ||
+  mongoose.model('User', userSchema);
 
-// Tokens are kept in memory; users may need to log in again after a restart.
 const sessions = new Map();
-const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000;
 
-function createSession(userId) {
-  const token = crypto.randomBytes(32).toString("hex");
-  sessions.set(token, {
-    userId: String(userId),
-    expiresAt: Date.now() + SESSION_DURATION
-  });
-  return token;
+function makeToken() {
+  return crypto.randomBytes(32).toString('hex');
 }
 
 function getToken(req) {
-  const header = req.headers.authorization || "";
-  if (header.startsWith("Bearer ")) {
-    return header.slice(7).trim();
-  }
-  return "";
+  const header = req.headers.authorization || '';
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : null;
 }
 
-async function authMiddleware(req, res, next) {
-  try {
-    const token = getToken(req);
-    const session = sessions.get(token);
+function getSessionUsername(token) {
+  if (!token) return null;
 
-    if (!token || !session || session.expiresAt < Date.now()) {
-      if (token) sessions.delete(token);
-      return res.status(401).json({
-        ok: false,
-        error: "Please log in again."
-      });
-    }
+  const session = sessions.get(token);
+  if (!session) return null;
 
-    const user = await User.findById(session.userId);
-
-    if (!user) {
-      sessions.delete(token);
-      return res.status(401).json({
-        ok: false,
-        error: "Account not found."
-      });
-    }
-
-    req.user = user;
-    req.token = token;
-    next();
-  } catch (error) {
-    console.error("Authentication error:", error.message);
-    res.status(500).json({ ok: false, error: "Authentication failed." });
+  if (session.expiresAt <= Date.now()) {
+    sessions.delete(token);
+    return null;
   }
+
+  return session.username;
 }
 
-// ==================== API ====================
+function requireAuth(req, res, next) {
+  const username = getSessionUsername(getToken(req));
 
-app.get("/", (req, res) => {
-  res.send("Naruto RPG API is running");
-});
+  if (!username) {
+    return res.status(401).json({
+      error: 'Phiên đăng nhập hết hạn. Hãy đăng nhập lại.'
+    });
+  }
 
-app.get("/api/health", (req, res) => {
+  req.username = username;
+  next();
+}
+
+function validUsername(value) {
+  return typeof value === 'string' &&
+    /^[a-zA-Z0-9_-]{3,24}$/.test(value.trim());
+}
+
+function validPassword(value) {
+  return typeof value === 'string' &&
+    value.length >= 6 &&
+    value.length <= 128;
+}
+
+function safeCharacterName(value) {
+  return typeof value === 'string' &&
+    value.trim().length > 0 &&
+    value.trim().length <= 40;
+}
+
+app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
-    service: "Naruto RPG API",
+    service: 'Naruto RPG API',
     database: mongoose.connection.readyState === 1
-      ? "connected"
-      : "disconnected"
+      ? 'connected'
+      : 'disconnected'
   });
 });
 
-app.post("/api/register", async (req, res) => {
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'), err => {
+    if (err && !res.headersSent) {
+      res.status(200).send(
+        'Naruto RPG API is running. Open the frontend hosted on GitHub Pages.'
+      );
+    }
+  });
+});
+
+app.post('/api/register', async (req, res) => {
   try {
-    const username = String(req.body.username || "").trim();
-    const password = String(req.body.password || "");
+    const username = typeof req.body.username === 'string'
+      ? req.body.username.trim().toLowerCase()
+      : '';
+    const password = req.body.password;
 
-    if (!/^[a-zA-Z0-9_-]{3,24}$/.test(username)) {
+    if (!validUsername(username)) {
       return res.status(400).json({
-        ok: false,
-        error: "Username must be 3-24 characters using letters, numbers, _ or -."
+        error: 'Tên tài khoản phải dài 3–24 ký tự, chỉ gồm chữ, số, _ hoặc -.'
       });
     }
 
-    if (password.length < 6 || password.length > 128) {
+    if (!validPassword(password)) {
       return res.status(400).json({
-        ok: false,
-        error: "Password must be between 6 and 128 characters."
+        error: 'Mật khẩu phải dài từ 6 đến 128 ký tự.'
       });
     }
 
-    const normalized = username.toLowerCase();
-    const existing = await User.findOne({ username: normalized });
-
+    const existing = await User.findOne({ username }).lean();
     if (existing) {
-      return res.status(409).json({
-        ok: false,
-        error: "Username already exists."
-      });
+      return res.status(409).json({ error: 'Tài khoản đã tồn tại.' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const passwordHash = await bcrypt.hash(password, 12);
+    await User.create({ username, passwordHash, saves: {} });
 
-    const user = await User.create({
-      username: normalized,
-      password: hashedPassword,
-      saves: {}
+    const token = makeToken();
+    sessions.set(token, {
+      username,
+      expiresAt: Date.now() + SESSION_TTL_MS
     });
 
-    const token = createSession(user._id);
-
-    return res.status(201).json({
+    res.status(201).json({
       ok: true,
-      username: user.username,
+      username,
       token,
-      expiresIn: SESSION_DURATION
+      expiresIn: SESSION_TTL_MS
     });
-  } catch (error) {
-    if (error.code === 11000) {
-      return res.status(409).json({
-        ok: false,
-        error: "Username already exists."
-      });
+  } catch (err) {
+    if (err && err.code === 11000) {
+      return res.status(409).json({ error: 'Tài khoản đã tồn tại.' });
     }
-
-    console.error("Register error:", error);
-    return res.status(500).json({
-      ok: false,
-      error: "Could not register account."
-    });
+    console.error('[Register]', err.message);
+    res.status(500).json({ error: 'Không thể tạo tài khoản lúc này.' });
   }
 });
 
-app.post("/api/login", async (req, res) => {
+app.post('/api/login', async (req, res) => {
   try {
-    const username = String(req.body.username || "").trim().toLowerCase();
-    const password = String(req.body.password || "");
+    const username = typeof req.body.username === 'string'
+      ? req.body.username.trim().toLowerCase()
+      : '';
+    const password = req.body.password;
 
-    if (!username || !password) {
+    if (!username || typeof password !== 'string') {
       return res.status(400).json({
-        ok: false,
-        error: "Enter your username and password."
+        error: 'Vui lòng nhập tên tài khoản và mật khẩu.'
       });
     }
 
     const user = await User.findOne({ username });
-
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       return res.status(401).json({
-        ok: false,
-        error: "Incorrect username or password."
+        error: 'Sai tên tài khoản hoặc mật khẩu.'
       });
     }
 
-    const token = createSession(user._id);
+    const token = makeToken();
+    sessions.set(token, {
+      username,
+      expiresAt: Date.now() + SESSION_TTL_MS
+    });
 
-    return res.json({
-      ok: true,
-      username: user.username,
-      token,
-      expiresIn: SESSION_DURATION
-    });
-  } catch (error) {
-    console.error("Login error:", error);
-    return res.status(500).json({
-      ok: false,
-      error: "Could not log in."
-    });
+    res.json({ ok: true, username, token, expiresIn: SESSION_TTL_MS });
+  } catch (err) {
+    console.error('[Login]', err.message);
+    res.status(500).json({ error: 'Không thể đăng nhập lúc này.' });
   }
 });
 
-app.post("/api/logout", (req, res) => {
+app.post('/api/logout', requireAuth, (req, res) => {
   const token = getToken(req);
   if (token) sessions.delete(token);
-
   res.json({ ok: true });
 });
 
-app.get("/api/me", authMiddleware, (req, res) => {
-  res.json({
-    ok: true,
-    username: req.user.username
-  });
+app.get('/api/me', (req, res) => {
+  const username = getSessionUsername(getToken(req));
+  res.json(username ? { loggedIn: true, username } : { loggedIn: false });
 });
 
-app.post("/api/save", authMiddleware, async (req, res) => {
+// Lưu dữ liệu nhân vật vào MongoDB Atlas.
+app.post('/api/save', requireAuth, async (req, res) => {
   try {
-    const character = String(
-      req.body.character || req.body.char || "default"
-    ).slice(0, 50);
+    const { character, data } = req.body || {};
 
-    const gameData = req.body.gameData ?? req.body.data ?? req.body;
-
-    if (!gameData || typeof gameData !== "object" || Array.isArray(gameData)) {
-      return res.status(400).json({
-        ok: false,
-        error: "Invalid save data."
-      });
+    if (
+      !safeCharacterName(character) ||
+      !data ||
+      typeof data !== 'object' ||
+      Array.isArray(data)
+    ) {
+      return res.status(400).json({ error: 'Dữ liệu lưu không hợp lệ.' });
     }
 
-    req.user.set(`saves.${character}`, gameData);
-    req.user.markModified("saves");
-    await req.user.save();
-
-    res.json({ ok: true, character });
-  } catch (error) {
-    console.error("Save error:", error);
-    res.status(500).json({
-      ok: false,
-      error: "Could not save game."
-    });
-  }
-});
-
-app.get("/api/save", authMiddleware, async (req, res) => {
-  try {
-    const character = String(req.query.character || req.query.char || "default")
-      .slice(0, 50);
-
-    res.json({
-      ok: true,
-      character,
-      data: req.user.saves?.[character] ?? null
-    });
-  } catch (error) {
-    console.error("Load save error:", error);
-    res.status(500).json({
-      ok: false,
-      error: "Could not load game."
-    });
-  }
-});
-
-app.get("/api/save/:char", authMiddleware, async (req, res) => {
-  try {
-    const character = String(req.params.char).slice(0, 50);
-
-    res.json({
-      ok: true,
-      character,
-      data: req.user.saves?.[character] ?? null
-    });
-  } catch (error) {
-    console.error("Load character save error:", error);
-    res.status(500).json({
-      ok: false,
-      error: "Could not load character save."
-    });
-  }
-});
-
-app.delete("/api/save/:char", authMiddleware, async (req, res) => {
-  try {
-    const character = String(req.params.char).slice(0, 50);
-
-    if (req.user.saves) {
-      delete req.user.saves[character];
+    const user = await User.findOne({ username: req.username });
+    if (!user) {
+      return res.status(404).json({ error: 'Không tìm thấy tài khoản.' });
     }
 
-    req.user.markModified("saves");
-    await req.user.save();
+    const saves = user.saves && typeof user.saves === 'object'
+      ? user.saves
+      : {};
 
-    res.json({ ok: true, character });
-  } catch (error) {
-    console.error("Delete save error:", error);
-    res.status(500).json({
-      ok: false,
-      error: "Could not delete save."
-    });
+    saves[character.trim()] = data;
+    user.saves = saves;
+    user.markModified('saves');
+    await user.save();
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Save]', err.message);
+    res.status(500).json({ error: 'Không thể lưu dữ liệu lúc này.' });
   }
 });
 
-// ==================== MULTIPLAYER ====================
+app.get('/api/save/:char', requireAuth, async (req, res) => {
+  try {
+    const charName = decodeURIComponent(req.params.char);
+    const user = await User.findOne({ username: req.username }).lean();
 
-const players = new Map();
+    if (!user) {
+      return res.status(404).json({ error: 'Không tìm thấy tài khoản.' });
+    }
 
-function safeNumber(value, fallback = 0) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : fallback;
+    res.json({
+      data: user.saves && user.saves[charName]
+        ? user.saves[charName]
+        : null
+    });
+  } catch (err) {
+    console.error('[Load save]', err.message);
+    res.status(500).json({ error: 'Không thể tải dữ liệu lúc này.' });
+  }
+});
+
+app.delete('/api/save/:char', requireAuth, async (req, res) => {
+  try {
+    const charName = decodeURIComponent(req.params.char);
+    const user = await User.findOne({ username: req.username });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Không tìm thấy tài khoản.' });
+    }
+
+    const saves = user.saves && typeof user.saves === 'object'
+      ? user.saves
+      : {};
+
+    delete saves[charName];
+    user.saves = saves;
+    user.markModified('saves');
+    await user.save();
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Delete save]', err.message);
+    res.status(500).json({ error: 'Không thể xóa dữ liệu lúc này.' });
+  }
+});
+
+const rooms = new Map();
+
+app.get('/api/rooms', (req, res) => {
+  const list = [];
+  for (const [id, room] of rooms.entries()) {
+    list.push({
+      id,
+      name: room.name,
+      count: room.players.size
+    });
+  }
+  res.json({ rooms: list });
+});
+
+function removeSocketFromRoom(socket, pState) {
+  const room = rooms.get(pState.room);
+  if (!room) return;
+
+  room.players.delete(socket.id);
+
+  if (room.players.size === 0 && pState.room !== 'world') {
+    rooms.delete(pState.room);
+  } else {
+    socket.to(pState.room).emit(
+      'feed',
+      `${pState.name} đã ngắt kết nối.`
+    );
+  }
 }
 
-io.on("connection", socket => {
-  socket.on("join", async payload => {
+io.on('connection', socket => {
+  const pState = {
+    id: socket.id,
+    account: '',
+    token: null,
+    room: 'world',
+    name: 'Khách',
+    char: 'Naruto',
+    x: 20000,
+    y: 20000,
+    hp: 100,
+    maxHp: 100,
+    lvl: 1,
+    score: 0,
+    face: 1,
+    dead: 0,
+    gameData: null
+  };
+
+  socket.data.rpgPlayer = pState;
+
+  socket.on('join', async data => {
     try {
-      payload = payload || {};
+      data = data && typeof data === 'object' ? data : {};
 
-      const roomId = String(payload.roomId || payload.room || "konoha")
-        .slice(0, 50);
+      pState.name = typeof data.name === 'string'
+        ? data.name.slice(0, 24)
+        : 'Khách';
 
-      const character = String(payload.char || "default").slice(0, 50);
-      const token = String(payload.token || "");
-      const session = sessions.get(token);
+      pState.char = safeCharacterName(data.char)
+        ? data.char.trim()
+        : 'Naruto';
 
-      let username = "Guest";
-      let userId = null;
+      const token = typeof data.token === 'string'
+        ? data.token
+        : null;
 
-      if (session && session.expiresAt > Date.now()) {
-        const user = await User.findById(session.userId);
+      const username = getSessionUsername(token);
 
-        if (user) {
-          username = user.username;
-          userId = String(user._id);
+      pState.token = username ? token : null;
+      pState.account = username || '';
+
+      const roomId =
+        typeof data.roomId === 'string' && data.roomId.trim()
+          ? data.roomId.trim().slice(0, 48)
+          : 'world';
+
+      if (rooms.has(pState.room)) {
+        rooms.get(pState.room).players.delete(socket.id);
+
+        if (
+          rooms.get(pState.room).players.size === 0 &&
+          pState.room !== 'world'
+        ) {
+          rooms.delete(pState.room);
         }
+      }
+
+      socket.leave(pState.room);
+      pState.room = roomId;
+
+      if (!rooms.has(roomId)) {
+        rooms.set(roomId, {
+          name: typeof data.roomName === 'string'
+            ? data.roomName.slice(0, 48)
+            : `Server ${roomId}`,
+          players: new Map()
+        });
       }
 
       socket.join(roomId);
+      rooms.get(roomId).players.set(socket.id, pState);
 
-      const playerState = {
-        id: socket.id,
-        username,
-        userId,
-        character,
-        roomId,
-        x: 0,
-        y: 0,
-        hp: 100,
-        maxHp: 100,
-        lvl: 1,
-        score: 0,
-        face: 1,
-        dead: false,
-        gameData: userId && payload.gameData &&
-          typeof payload.gameData === "object"
-          ? payload.gameData
-          : null
-      };
-
-      players.set(socket.id, playerState);
-
-      socket.emit("joined", {
-        ok: true,
-        id: socket.id,
-        username,
-        roomId
-      });
-
-      socket.emit("players", Array.from(players.values())
-        .filter(player => player.roomId === roomId && player.id !== socket.id));
-
-      socket.to(roomId).emit("playerJoined", playerState);
-    } catch (error) {
-      console.error("Socket join error:", error);
-      socket.emit("errorMessage", "Could not join multiplayer.");
+      io.to(roomId).emit(
+        'feed',
+        `${pState.name} đã tham gia Server!`
+      );
+    } catch (err) {
+      console.error('[Socket join]', err.message);
     }
   });
 
-  socket.on("state", data => {
-    const player = players.get(socket.id);
-    if (!player || !data || typeof data !== "object") return;
+  socket.on('switch_room', data => {
+    data = data && typeof data === 'object' ? data : {};
 
-    player.x = safeNumber(data.x, player.x);
-    player.y = safeNumber(data.y, player.y);
-    player.hp = safeNumber(data.hp, player.hp);
-    player.maxHp = safeNumber(data.maxHp, player.maxHp);
-    player.lvl = safeNumber(data.lvl, player.lvl);
-    player.score = safeNumber(data.score, player.score);
-    player.face = safeNumber(data.face, player.face);
-    player.dead = Boolean(data.dead);
+    const roomId =
+      typeof data.roomId === 'string' && data.roomId.trim()
+        ? data.roomId.trim().slice(0, 48)
+        : 'world';
 
-    if (player.userId && data.gameData &&
-        typeof data.gameData === "object" &&
-        !Array.isArray(data.gameData)) {
-      player.gameData = data.gameData;
-    }
+    const roomName =
+      typeof data.roomName === 'string'
+        ? data.roomName.slice(0, 48)
+        : `Server ${roomId}`;
 
-    socket.to(player.roomId).emit("playerState", player);
-  });
+    socket.leave(pState.room);
 
-  socket.on("fire", data => {
-    const player = players.get(socket.id);
-    if (!player) return;
+    if (rooms.has(pState.room)) {
+      rooms.get(pState.room).players.delete(socket.id);
 
-    socket.to(player.roomId).emit("fire", {
-      id: socket.id,
-      data: data || {}
-    });
-  });
-
-  socket.on("died", data => {
-    const player = players.get(socket.id);
-    if (!player) return;
-
-    player.dead = true;
-
-    socket.to(player.roomId).emit("playerDied", {
-      id: socket.id,
-      data: data || {}
-    });
-  });
-
-  socket.on("disconnect", async () => {
-    const player = players.get(socket.id);
-    if (!player) return;
-
-    players.delete(socket.id);
-
-    socket.to(player.roomId).emit("playerLeft", {
-      id: socket.id
-    });
-
-    // Save only when the socket belongs to an authenticated account.
-    if (player.userId && player.gameData &&
-        typeof player.gameData === "object") {
-      try {
-        const user = await User.findById(player.userId);
-
-        if (user) {
-          user.set(`saves.${player.character}`, player.gameData);
-          user.markModified("saves");
-          await user.save();
-        }
-      } catch (error) {
-        console.error("Disconnect auto-save error:", error.message);
+      if (
+        rooms.get(pState.room).players.size === 0 &&
+        pState.room !== 'world'
+      ) {
+        rooms.delete(pState.room);
       }
     }
+
+    pState.room = roomId;
+
+    if (!rooms.has(roomId)) {
+      rooms.set(roomId, {
+        name: roomName,
+        players: new Map()
+      });
+    }
+
+    socket.join(roomId);
+    rooms.get(roomId).players.set(socket.id, pState);
+
+    io.to(roomId).emit(
+      'feed',
+      `${pState.name} đã tham gia Server!`
+    );
+  });
+
+  socket.on('state', st => {
+    if (!st || typeof st !== 'object') return;
+
+    const allowed = [
+      'name', 'char', 'x', 'y', 'hp', 'maxHp',
+      'lvl', 'score', 'face', 'dead', 'gameData'
+    ];
+
+    for (const key of allowed) {
+      if (!Object.prototype.hasOwnProperty.call(st, key)) continue;
+
+      if (key === 'name' && typeof st[key] === 'string') {
+        pState.name = st[key].slice(0, 24);
+      } else if (key === 'char' && safeCharacterName(st[key])) {
+        pState.char = st[key].trim();
+      } else if (
+        key === 'gameData' &&
+        st[key] &&
+        typeof st[key] === 'object' &&
+        !Array.isArray(st[key])
+      ) {
+        pState.gameData = st[key];
+      } else if (
+        ['x', 'y', 'hp', 'maxHp', 'lvl', 'score', 'face', 'dead']
+          .includes(key) &&
+        Number.isFinite(Number(st[key]))
+      ) {
+        pState[key] = Number(st[key]);
+      }
+    }
+
+    const room = rooms.get(pState.room);
+    if (room) room.players.set(socket.id, pState);
+  });
+
+  socket.on('fire', projectiles => {
+    if (!Array.isArray(projectiles)) return;
+
+    socket.to(pState.room).emit('fire', {
+      id: socket.id,
+      a: projectiles.slice(0, 100)
+    });
+  });
+
+  socket.on('died', data => {
+    if (data && typeof data.by === 'string' && data.by.length <= 40) {
+      io.to(pState.room).emit(
+        'feed',
+        `${pState.name} bị hạ gục bởi ${data.by}!`
+      );
+    }
+  });
+
+  socket.on('server_chat', data => {
+    if (!data || typeof data.message !== 'string') return;
+
+    const message = data.message
+      .replace(/[\u0000-\u001f\u007f]/g, '')
+      .trim()
+      .slice(0, 180);
+
+    if (!message) return;
+
+    io.to(pState.room).emit('server_chat', {
+      name: pState.name,
+      message,
+      at: Date.now()
+    });
+  });
+
+  // Hệ thống mời đồng minh
+  socket.on('ally_invite', data => {
+    const targetId =
+      data && typeof data.to === 'string' ? data.to : '';
+
+    const target = io.sockets.sockets.get(targetId);
+    const targetState = target?.data?.rpgPlayer;
+
+    if (
+      !target ||
+      !targetState ||
+      targetId === socket.id ||
+      targetState.room !== pState.room
+    ) {
+      socket.emit('ally_result', {
+        ok: false,
+        message: 'Người chơi không còn ở cùng server.'
+      });
+      return;
+    }
+
+    target.emit('ally_invite', {
+      from: socket.id,
+      name: pState.name
+    });
+  });
+
+  socket.on('ally_reply', data => {
+    const fromId =
+      data && typeof data.to === 'string' ? data.to : '';
+
+    const inviter = io.sockets.sockets.get(fromId);
+    const inviterState = inviter?.data?.rpgPlayer;
+
+    if (!inviter || !inviterState ||
+        inviterState.room !== pState.room) {
+      socket.emit('ally_result', {
+        ok: false,
+        message: 'Người mời đã rời server.'
+      });
+      return;
+    }
+
+    if (data.accept === true) {
+      inviter.emit('ally_result', {
+        ok: true,
+        id: socket.id,
+        name: pState.name
+      });
+
+      socket.emit('ally_update', {
+        id: fromId,
+        name: inviterState.name
+      });
+
+      io.to(pState.room).emit('system_chat', {
+        message: `${pState.name} và ${inviterState.name} đã trở thành đồng minh.`
+      });
+    } else {
+      inviter.emit('ally_result', {
+        ok: false,
+        message: `${pState.name} đã từ chối lời mời.`
+      });
+    }
+  });
+
+  const syncTimer = setInterval(() => {
+    const room = rooms.get(pState.room);
+
+    if (room) {
+      socket.emit(
+        'players',
+        Array.from(room.players.values())
+          .filter(player => player.id !== socket.id)
+      );
+    }
+  }, 100);
+
+  socket.on('disconnect', async () => {
+    clearInterval(syncTimer);
+
+    try {
+      // Tự lưu tiến trình khi ngắt kết nối
+      if (
+        pState.account &&
+        pState.token &&
+        getSessionUsername(pState.token) === pState.account &&
+        pState.gameData
+      ) {
+        const user = await User.findOne({
+          username: pState.account
+        });
+
+        if (user) {
+          const saves =
+            user.saves && typeof user.saves === 'object'
+              ? user.saves
+              : {};
+
+          saves[pState.char] = pState.gameData;
+          user.saves = saves;
+          user.markModified('saves');
+          await user.save();
+
+          console.log(
+            `[Auto-Save] Đã lưu tiến trình cho ${pState.account}.`
+          );
+        }
+      }
+    } catch (err) {
+      console.error('[Auto-Save]', err.message);
+    }
+
+    removeSocketFromRoom(socket, pState);
   });
 });
 
-// ==================== START SERVER ====================
+// Khởi động server và kết nối MongoDB Atlas
+async function start() {
+  if (!DATABASE_URL) {
+    console.error(
+      'THIẾU DATABASE_URL: hãy thêm MongoDB Atlas URI trong Render > Environment.'
+    );
+    process.exit(1);
+  }
 
-async function startServer() {
   try {
     await mongoose.connect(DATABASE_URL, {
-      serverSelectionTimeoutMS: 15000
+      serverSelectionTimeoutMS: 15000,
+      connectTimeoutMS: 15000,
+      socketTimeoutMS: 45000,
+      maxPoolSize: 10,
+      family: 4
     });
 
-    console.log("✅ MongoDB Atlas connected");
+    console.log('[MongoDB] Đã kết nối MongoDB Atlas.');
 
-    server.listen(PORT, () => {
-      console.log(`✅ Naruto RPG API running on port ${PORT}`);
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`Naruto RPG API đang chạy trên cổng ${PORT}.`);
     });
-  } catch (error) {
-    console.error("❌ MongoDB connection failed:", error.message);
+  } catch (err) {
+    console.error('[MongoDB] Kết nối thất bại:', err.message);
+    console.error(
+      'Kiểm tra DATABASE_URL, mật khẩu đã URL-encode và Atlas Network Access.'
+    );
     process.exit(1);
   }
 }
 
-mongoose.connection.on("disconnected", () => {
-  console.warn("⚠️ MongoDB disconnected");
+process.on('SIGTERM', async () => {
+  console.log('Đang tắt Naruto RPG API...');
+  await mongoose.disconnect().catch(() => {});
+  server.close(() => process.exit(0));
 });
 
-startServer();
+start();
