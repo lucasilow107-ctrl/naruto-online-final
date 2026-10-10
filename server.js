@@ -234,6 +234,22 @@ io.on('connection', socket => {
   };
   socket.data.rpgPlayer = pState;
 
+  socket.on('skill_fx', (data) => {
+  if (!data || !Number.isFinite(data.x) ||
+      !Number.isFinite(data.y)) return;
+
+  socket.broadcast.emit('skill_fx', {
+    x: data.x,
+    y: data.y,
+    angle: Number(data.angle) || 0,
+    skill: String(data.skill || 'Kỹ năng').slice(0, 40),
+    char: String(data.char || 'Naruto').slice(0, 20),
+    color: /^#[0-9a-fA-F]{6}$/.test(data.color)
+      ? data.color
+      : '#80deea'
+  });
+});
+  
   socket.on('join', async data => {
     try {
       data = data && typeof data === 'object' ? data : {};
