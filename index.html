@@ -251,7 +251,8 @@ h1{font-family:'Press Start 2P',monospace;color:var(--org);text-shadow:3px 3px 0
 const $=id=>document.getElementById(id),C=$('c'),X=C.getContext('2d'),M=$('mm').getContext('2d');
 /* ---------- Tài khoản & Quản lý Server ---------- */
 const RENDER_URL='https://naruto-online-auth-login.onrender.com';
-const API_BASE=String(window.NARUTO_API_BASE||RENDER_URL).replace(/\/+$/,'');
+const API_QUERY_URL=new URLSearchParams(location.search).get('api');
+const API_BASE=String(window.NARUTO_API_BASE||API_QUERY_URL||RENDER_URL).replace(/\/+$/,'');
 let currentAccount=null,guest=false,picking=0;
 const TOKEN_KEY='naruto_rpg_auth_token_v1';
 function getAuthToken(){try{return localStorage.getItem(TOKEN_KEY)||''}catch(e){return ''}}
@@ -848,8 +849,22 @@ function hud(){const zz=lobby||dg?0:zoneOf(me.x,me.y);$('zl').textContent=ZN_[zz
  $('xpb').style.width=me.xp/(me.lvl*100)*100+'%';$('sc').textContent=me.score;$('lv').textContent='LV '+me.lvl;$('kl').textContent='☠ '+me.kills+' 💰'+me.ryo+(dg?' · Wave '+dg.wave+'/15':'');
  const sl=me.slots;for(let i=0;i<6;i++){const cd=$('cd'+i),on=me.cd[i]>0;cd.style.display=on?'flex':'none';if(on)cd.textContent=me.cd[i].toFixed(1);$('s'+i).classList.toggle('no',!on&&me.chakra<sl[i].c)}
  if(fr%30==0)$('lb').innerHTML='<b>TOP NINJA</b>'+F.filter(f=>!f.mob&&!f.boss).sort((a,b)=>b.score-a.score).slice(0,6).map(f=>`<div style="color:${f===me?'#69f0ae':'#fff'}"><span>${f===me?'Bạn':f.name}</span><span>${f.score}</span></div>`).join('')}
-function loop(t){if(!run)return;acc+=Math.min(100,t-last);last=t;while(acc>=16.67){update();acc-=16.67}render();requestAnimationFrame(loop)}
+// Vòng vẽ riêng: requestAnimationFrame chỉ dùng để vẽ, không quyết định nhịp mô phỏng.
+function loop(){if(!run)return;render();requestAnimationFrame(loop)}
 let acc=0,last=0;
+// Nhịp mô phỏng độc lập với vẽ để giảm hiện tượng đứng game khi đổi tab.
+let _simLast=performance.now(), _simAcc=0;
+setInterval(()=>{
+  if(!run || !me) return;
+  const now=performance.now();
+  const elapsed=Math.min(1000, Math.max(0, now-_simLast));
+  _simLast=now; _simAcc+=elapsed;
+  let steps=0;
+  while(_simAcc>=16.667 && steps<60){update();_simAcc-=16.667;steps++;}
+  // Khi trình duyệt giới hạn tab nền, giữ game tiến lên thay vì bỏ toàn bộ thời gian đã trôi qua.
+  if(steps===60 && _simAcc>1000) _simAcc=1000;
+},16);
+document.addEventListener('visibilitychange',()=>{_simLast=performance.now();});
 
 /* ---------- Input & start ---------- */
 addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(cap){e.preventDefault();if(cap.i>=0)KB.sk[cap.i]=k;else KB[cap.a]=k;cap=null;sv();renderSet();return}keys[k]=true;if(run&&k===KB.inv)inv();if(run&&k===KB.inter){const i=inter();if(i)i.k==='n'?talk(i.o):i.k==='p'?enterDungeon(i.o.di):i.k==='g'?toWorld():leaveDungeon(1)}if(k==='escape'){if($('dlg').style.display==='flex'||$('inv').style.display==='flex'||$('roomModal').style.display==='flex'){dlc();$('inv').style.display='none';closeRoomModal()}else setp()}const si=KB.sk.indexOf(k);if(run&&si>=0)useSkill(me,si)});
@@ -960,16 +975,26 @@ try {
   });
   socket.on('system_chat', data => {if(data?.message)banner('📣 '+data.message)});
   socket.on('players', arr => {
+    if (!Array.isArray(arr)) return;
     const seen = new Set();
     for (const d of arr) {
+      if (!d || typeof d.id !== 'string' || d.id === socket.id) continue;
       seen.add(d.id);
-      const { x, y, ...r } = d;
+      const x = Number.isFinite(Number(d.x)) ? Number(d.x) : (me?.x ?? W/2);
+      const y = Number.isFinite(Number(d.y)) ? Number(d.y) : (me?.y ?? W/2);
+      const { x: _x, y: _y, ...r } = d;
       let g = G.get(d.id);
       if (!g) {
-        g = { x, y, anim: 0, dmgM: 1, buff: {}, xp: 0, kills: 0, bot: 1, maxChakra: 100, chakra: 100, arm: null };
+        g = { x, y, tx:x, ty:y, anim:0, dmgM:1, buff:{}, xp:0, kills:0, bot:0, maxChakra:100, chakra:100, arm:null, face:1, hp:100, maxHp:100, lvl:1, score:0, dead:0, char:'Naruto' };
         G.set(d.id, g);
       }
-      Object.assign(g, r); g.tx = x; g.ty = y;
+      Object.assign(g, r);
+      g.char = (typeof g.char === 'string' && SPR[g.char]) ? g.char : 'Naruto';
+      g.x = Number.isFinite(g.x) ? g.x : x; g.y = Number.isFinite(g.y) ? g.y : y;
+      g.tx = x; g.ty = y;
+      g.hp = Number.isFinite(Number(g.hp)) ? Number(g.hp) : 100;
+      g.maxHp = Math.max(1, Number(g.maxHp)||100);
+      g.face = Number(g.face) < 0 ? -1 : 1;
     }
     for (const id of G.keys()) if (!seen.has(id)) G.delete(id);
     for(const [id,a] of allyTeam){if(G.has(id))a.online=true;else a.online=false;}
@@ -1055,8 +1080,9 @@ render = function () {
   if (!me || !run) return;
   X.save(); X.translate(-cam.x | 0, -cam.y | 0);
   for (const g of G.values()) {
+    if (!Number.isFinite(g.x) || !Number.isFinite(g.y)) continue;
     if (g.dead || g.x < cam.x - 150 || g.x > cam.x + C.width + 150 || g.y < cam.y - 200 || g.y > cam.y + C.height + 150) continue;
-    const fm = Math.sin(g.anim) > 0 ? 1 : 0, spr = SPR[g.char];
+    const fm = Math.sin(g.anim) > 0 ? 1 : 0, spr = SPR[g.char] || SPR.Naruto;
     if (!spr) continue;
     X.fillStyle = 'rgba(0,0,0,.35)'; X.fillRect(g.x - 14, g.y + 12, 28, 6);
     X.save(); X.translate(g.x, g.y - 26 + (fm ? -2 : 0)); X.scale(g.face, 1);
@@ -1472,6 +1498,32 @@ update=function(){
   if(pendingSharedWorldSnapshot && me && !lobby && !dg){ const pending=pendingSharedWorldSnapshot; pendingSharedWorldSnapshot=null; applySharedWorld(pending); }
   if(socket&&socket.connected&&isWorldOwner&&!lobby&&!dg&&!pendingSharedWorldSnapshot&&fr%6===0) publishSharedWorld();
 };
+</script>
+
+
+<style>
+#onlineHud{position:fixed;z-index:50;top:12px;left:50%;transform:translateX(-50%);font:700 12px/1.3 'Segoe UI',sans-serif;color:#fff0c7;pointer-events:auto}
+#onlineToggle{background:#24150df2;color:#fff0c7;border:3px solid #f6c453;box-shadow:0 0 0 2px #24150d;padding:8px 12px;cursor:pointer;font-weight:800}
+#onlinePanel{display:none;position:absolute;top:42px;left:50%;transform:translateX(-50%);width:min(300px,90vw);max-height:45vh;overflow:auto;background:#24150df5;border:3px solid #f6c453;box-shadow:0 0 0 2px #24150d;padding:10px}
+#onlinePanel h3{font-size:12px;margin-bottom:8px;color:#f6c453}
+.online-row{display:flex;justify-content:space-between;gap:10px;padding:6px 2px;border-bottom:1px solid #76502e;font-size:12px}
+.online-row small{color:#9ee7a4;white-space:nowrap}
+#onlineStatus{font-size:10px;color:#b8d6f2;margin-top:6px}
+@media(max-width:700px){#onlineHud{top:7px}#onlineToggle{padding:6px 8px;font-size:10px}}
+</style>
+<div id="onlineHud">
+ <button id="onlineToggle" type="button" aria-expanded="false">🌐 Online: <span id="onlineCount">1</span> · Xem người chơi</button>
+ <div id="onlinePanel"><h3>THẾ GIỚI NARUTO · NGƯỜI ĐANG ONLINE</h3><div id="onlineRows"><div class="online-row">Đang kết nối…</div></div><div id="onlineStatus">Đang chờ dữ liệu từ server</div></div>
+</div>
+<script>
+(()=>{
+ const toggle=document.getElementById('onlineToggle'),panel=document.getElementById('onlinePanel'),rows=document.getElementById('onlineRows'),count=document.getElementById('onlineCount'),status=document.getElementById('onlineStatus');
+ toggle.addEventListener('click',()=>{const open=panel.style.display!=='block';panel.style.display=open?'block':'none';toggle.setAttribute('aria-expanded',String(open));});
+ const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function paint(arr){if(!Array.isArray(arr))return;const others=arr.filter(p=>p&&typeof p.id==='string');const meName=(typeof currentAccount==='string'&&currentAccount)||'Bạn';count.textContent=String(others.length+1);const list=[{name:meName,char:typeof me!=='undefined'&&me?me.char:'Ninja',mode:'Bạn',self:true},...others.map(p=>({name:p.name||'Shinobi',char:p.char||'Naruto',mode:p.currentMode==='world'?'Thế giới':p.currentMode==='raid'?'Phó bản':'Làng Lá',self:false}))];rows.innerHTML=list.map(p=>`<div class="online-row"><span>${p.self?'🟢':'🔵'} ${safe(p.name)} <small>(${safe(p.char)})</small></span><small>${safe(p.mode)}</small></div>`).join('');status.textContent='Kết nối: '+(socket&&socket.connected?'ổn định':'đang kết nối lại')+' · Server chung';}
+ function attach(){if(typeof socket==='undefined'||!socket){status.textContent='Chưa khởi tạo Socket.IO';return;}socket.on('players',paint);socket.on('connect',()=>{status.textContent='Đã kết nối server chung';});socket.on('disconnect',()=>{status.textContent='Mất kết nối — đang thử kết nối lại…';});}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attach);else attach();
+})();
 </script>
 
 </body>
