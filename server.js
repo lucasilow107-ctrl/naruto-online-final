@@ -11,11 +11,13 @@ const mongoose = require('mongoose');
 
 const app = express();
 const server = http.createServer(app);
+const allowedOrigins = (process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
+const corsOrigin = (origin, callback) => {
+  if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) return callback(null, true);
+  return callback(new Error('Origin is not allowed by FRONTEND_URL'));
+};
 const io = new Server(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(s => s.trim()) : '*',
-    methods: ['GET', 'POST']
-  }
+  cors: { origin: corsOrigin, methods: ['GET', 'POST'], credentials: true }
 });
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -39,7 +41,8 @@ const DATABASE_URL = readMongoUri();
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(s => s.trim()) : '*',
+  origin: corsOrigin,
+  credentials: true,
   methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -67,7 +70,7 @@ function getToken(req) {
   return match ? match[1].trim() : null;
 }
 function getSessionUsername(token) {
-  if (!token) return null;
+  if (typeof token !== 'string' || !token) return null;
   const session = sessions.get(token);
   if (!session) return null;
   if (session.expiresAt <= Date.now()) {
@@ -234,22 +237,6 @@ io.on('connection', socket => {
   };
   socket.data.rpgPlayer = pState;
 
-  socket.on('skill_fx', (data) => {
-  if (!data || !Number.isFinite(data.x) ||
-      !Number.isFinite(data.y)) return;
-
-  socket.broadcast.emit('skill_fx', {
-    x: data.x,
-    y: data.y,
-    angle: Number(data.angle) || 0,
-    skill: String(data.skill || 'Kỹ năng').slice(0, 40),
-    char: String(data.char || 'Naruto').slice(0, 20),
-    color: /^#[0-9a-fA-F]{6}$/.test(data.color)
-      ? data.color
-      : '#80deea'
-  });
-});
-  
   socket.on('join', async data => {
     try {
       data = data && typeof data === 'object' ? data : {};
@@ -312,6 +299,19 @@ io.on('connection', socket => {
   socket.on('fire', projectiles => {
     if (!Array.isArray(projectiles)) return;
     socket.to(pState.room).emit('fire', { id: socket.id, a: projectiles.slice(0, 100) });
+  });
+
+  // Đồng bộ hiệu ứng kỹ năng cho người chơi cùng phòng. Đây là VFX; sát thương vẫn phải được đồng bộ riêng.
+  socket.on('skill_fx', data => {
+    if (!data || !Number.isFinite(Number(data.x)) || !Number.isFinite(Number(data.y))) return;
+    const color = typeof data.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.color) ? data.color : '#80deea';
+    socket.to(pState.room).emit('skill_fx', {
+      id: socket.id, x: Math.max(-50000, Math.min(50000, Number(data.x))),
+      y: Math.max(-50000, Math.min(50000, Number(data.y))),
+      angle: Number.isFinite(Number(data.angle)) ? Number(data.angle) : 0,
+      skill: String(data.skill || 'Kỹ năng').slice(0, 40),
+      char: safeCharacterName(data.char) ? data.char.trim().slice(0, 20) : pState.char, color
+    });
   });
 
   socket.on('died', data => {
