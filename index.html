@@ -150,6 +150,7 @@ h1{font-family:'Press Start 2P',monospace;color:var(--org);text-shadow:3px 3px 0
   <button onclick="toggleWorldMap()">🗺 BẢN ĐỒ</button>
   <button onclick="openRankPanel()">忍 RANK</button>
   <button onclick="openRaidPanel()">⛩ RAID</button>
+  <button onclick="openAlliesPanel()">🤝 ALLIES</button>
  </div>
 </div>
 <div id="worldMapPanel" class="pixel-overlay" style="display:none">
@@ -177,6 +178,18 @@ h1{font-family:'Press Start 2P',monospace;color:var(--org);text-shadow:3px 3px 0
   <div id="raidList" class="raid-list"></div>
  </section>
 </div>
+<div id="alliesPanel" class="pixel-overlay" style="display:none">
+ <section class="pixel-window allies-window">
+  <header class="pixel-header"><span>🤝 ĐỒNG MINH SHINOBI</span><button class="pixel-close" onclick="closePixelPanel('alliesPanel')">✕</button></header>
+  <p class="pixel-desc">Mời người chơi đang online trong cùng server vào đội đồng minh. Khi họ chấp nhận, cả hai sẽ thấy nhau trong danh sách.</p>
+  <div class="ally-columns">
+   <div class="ally-section"><h3>🟢 NGƯỜI CHƠI ONLINE</h3><div id="allyOnlineList" class="ally-list"><p>Đang tải người chơi...</p></div></div>
+   <div class="ally-section"><h3>⭐ ĐỒNG MINH CỦA BẠN</h3><div id="allyTeamList" class="ally-list"><p>Chưa có đồng minh. Mời người chơi ở cột bên trái nhé!</p></div></div>
+  </div>
+  <div class="ally-footer"><span id="allyStatus">Kết nối server để mời người chơi.</span><button onclick="refreshAlliesUI()">↻ LÀM MỚI</button></div>
+ </section>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
 <div id="auth">
  <div class="auth-card box">
   <div class="auth-logo"><img class="lf" alt=""><span>NARUTO RPG</span><img class="lf" alt=""></div>
@@ -224,13 +237,21 @@ h1{font-family:'Press Start 2P',monospace;color:var(--org);text-shadow:3px 3px 0
 <div id="dlg"><div class="ip box"><div class="ih"><b id="dtl"></b></div><div class="sub" id="dtx"></div><div id="dbt"></div></div></div>
 <div id="set"><div class="ip box"><div class="ih"><b>⚙ CÀI ĐẶT</b><button class="x" onclick="setp()">✕</button></div><button class="x lo" onclick="logoutAccount()">🚪 ĐĂNG XUẤT</button><div id="sc2"></div></div></div>
 <div id="inv"><div class="ip box"><div class="ih"><b>🎒 TÚI ĐỒ</b><button class="x" onclick="inv()">✕</button></div><div class="sub">Phi tiêu: bấm để trang bị cho chuột trái. Kỹ năng: bấm vật phẩm rồi bấm vào ô 1–6 để thay · ↺ trả về mặc định.</div><div id="eq"></div><div id="ig"></div><div id="dt" class="sub"></div></div></div>
-<div id="over"><h1>BẠN ĐÃ CHẾT</h1><div class="sub" id="ovt"></div><button onclick="resetAll()">BẮT ĐẦU LẠI</button></div>
+<div id="over">
+ <h1>BẠN ĐÃ CHẾT</h1>
+ <div class="sub" id="ovt"></div>
+ <div id="deathActions">
+  <button onclick="deathToLobby()">🏯 VỀ LOBBY</button>
+  <button onclick="reviveMe()">💚 HỒI SINH</button>
+ </div>
+ <div class="death-note">Tiến trình, Ryo và vật phẩm sẽ được giữ lại và tự lưu.</div>
+</div>
 
 <script>
 const $=id=>document.getElementById(id),C=$('c'),X=C.getContext('2d'),M=$('mm').getContext('2d');
 /* ---------- Tài khoản & Quản lý Server ---------- */
-const RENDER_URL=location.origin;
-const API_BASE=RENDER_URL.replace(/\/+$/,'');
+const RENDER_URL='https://naruto-online-auth-login.onrender.com';
+const API_BASE=String(window.NARUTO_API_BASE||RENDER_URL).replace(/\/+$/,'');
 let currentAccount=null,guest=false,picking=0;
 let currentRoomId = 'world';
 
@@ -564,11 +585,16 @@ const DUN=[{n:'Raid Làng Cát',pal:'Suna',pn:'Ninja Cát',bp:'Sasori',bn:'Sasor
 const PR=[40,150,500,1500],TIPS=['Hạ Boss có 25% mở Cổng Raid!','Quái càng mạnh (★) càng rớt đồ xịn, quái tinh anh ⭐ còn hơn.','Mặc giáp để tăng máu và giảm sát thương.','Mở Túi (I) để thay kỹ năng vào ô 1–6.','Boss rơi phi tiêu M1 độc quyền!'];
 function ring(x,y,mr,col){RG.push({x,y,mr,col,t:20,m:20})}
 function zap(x1,y1,x2,y2,c){const p=[[x1,y1]],n=8;for(let i=1;i<n;i++)p.push([x1+(x2-x1)*i/n+rnd(-14,14),y1+(y2-y1)*i/n+rnd(-14,14)]);p.push([x2,y2]);LN.push({p,col:c,t:10});burst(x2,y2,c,10)}
-function banner(m){const b=$('zn');b.innerHTML=m;b.style.opacity=1;clearTimeout(zt);zt=setTimeout(()=>b.style.opacity=0,3500)}
+let toastTimer=null;
+function banner(m){
+ const b=$('toast');
+ if(b){b.textContent=String(m||'').replace(/<[^>]*>/g,'');b.classList.remove('show');void b.offsetWidth;b.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>b.classList.remove('show'),2000);return}
+ const z=$('zn');if(z){z.textContent=String(m||'');z.style.opacity=1;clearTimeout(zt);zt=setTimeout(()=>z.style.opacity=0,2000)}
+}
 function nearP(f,r){let b=null,bd=r;for(const o of F)if(o!==f&&!o.dead&&!o.mob&&!o.boss&&!(f.tm&&o.tm)){const d=Math.hypot(o.x-f.x,o.y-f.y);if(d<bd){bd=d;b=o}}return b}
 function rollT(ty,b,min=0){const x=Math.random()+b,r=Math.max(min,x>1.07?3:x>.85?2:x>.5?1:0),ids=Object.keys(IT).filter(k=>IT[k].t===ty&&!IT[k].u&&IT[k].r>=r);return ids[Math.random()*ids.length|0]||'a0'}
 function setArm(id){const o=me.arm,n=IT[id];me.maxHp+=(n.hp||0)-(o?o.hp||0:0);me.hp=Math.min(me.hp,me.maxHp);me.arm=n;me.armor=id;save();renderInv()}
-function respawnMe(){me.dead=false;me.hp=me.maxHp*.6;me.buff={};me.dv=null;me.ryo=Math.floor(me.ryo*.85);banner('💀 Bạn bị hạ — mất 15% Ryo');if(dg)pend=1;else{me.x=W/2;me.y=W/2}}
+function respawnMe(){if(!me)return;me.dead=false;me.hp=me.maxHp;me.chakra=me.maxChakra;me.buff={};me.dv=null;if(dg)pend=1;else{me.x=W/2;me.y=W/2}save()}
 /* monsters */
 function spawnMobAt(x,y){const z=zoneOf(x,y),M=MOBS[z],d=M[Math.random()*M.length|0],t=d[4],el=Math.random()<.08+ZN_[z].lv*.006,b=mk('Naruto',x,y,1,d[0]),sc=(2+t*.4)*(el?1.25:1);
  Object.assign(b,{mob:1,def:d,t,elite:el,lvl:t,hp:(40+t*45)*(el?2.5:1),md:(5+t*3)*(el?1.4:1),r:Math.round(sc*6)});b.maxHp=b.hp;WLD().push(b)}
@@ -635,8 +661,10 @@ function renderSet(){const kb=(l,a,i)=>`<div class="rw"><span>${l}</span><button
  $('sc2').innerHTML=`<div class="rw"><span>🎵 Nhạc nền</span><input type="range" min="0" max="100" value="${SET.mus*100}" oninput="SET.mus=this.value/100;sv()"></div><div class="rw"><span>🔊 Âm thanh</span><input type="range" min="0" max="100" value="${SET.sfx*100}" oninput="SET.sfx=this.value/100;sv()"></div><div class="rw"><span>🖥 Cỡ giao diện</span><input type="range" min="80" max="170" value="${SET.ui*100}" oninput="SET.ui=this.value/100;sv()"></div><b>⌨ Phím — bấm nút rồi nhấn phím mới</b><div class="kg">`+Object.keys(KN).map(a=>kb(KN[a],a,-1)).join('')+KB.sk.map((_,i)=>kb('Kỹ năng '+(i+1),'sk',i)).join('')+`</div><div><button onclick="resetKB()">↺ Phím mặc định</button> <button onclick="toLobby();setp()">🏠 Về Lobby</button></div>`}
 function mus(f,d,t){try{const o=AC.createOscillator(),g=AC.createGain();o.type=t;o.frequency.value=f;g.gain.value=.06*SET.mus;g.gain.exponentialRampToValueAtTime(.0005,AC.currentTime+d);o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+d)}catch(e){}}
 setInterval(()=>{if(!run||!AC||SET.mus<=.01)return;const sc=[0,3,5,7,10,12,15,17],r=[110,98,87,98][mi>>4&3],n=sc[(mi*3+(mi>>2))%8];mi++;mus(r*2**(n/12),.55,'triangle');if(mi%4==0)mus(r/2,1,'sine')},280);
-function deathScreen(){run=false;dlc();$('inv').style.display='none';$('ovt').textContent='Cấp '+me.lvl+' · Điểm '+me.score+' · Hạ '+me.kills+' · Ryo '+me.ryo+'. Cấp độ, kỹ năng và đồ sẽ được đặt lại.';$('over').style.display='flex'}
-async function resetAll(){try{localStorage.removeItem(lsKey())}catch(e){}if(currentAccount&&!guest&&me){try{await api('/api/save/'+encodeURIComponent(me.char),{method:'DELETE'})}catch(e){}}location.reload()}
+function deathScreen(){run=false;dlc();$('inv').style.display='none';$('ovt').textContent='Cấp '+me.lvl+' · Điểm '+me.score+' · Hạ '+me.kills+' · Ryo '+me.ryo+'. Chọn về Lobby hoặc hồi sinh.';$('over').style.display='flex';save()} 
+async function reviveMe(){if(!me)return;respawnMe();$('over').style.display='none';run=true;last=performance.now();acc=0;requestAnimationFrame(loop);banner('💚 Đã hồi sinh — đồ và tiến trình được giữ nguyên.');}
+async function deathToLobby(){if(!me)return; if(dg)leaveDungeon(false); if(!lobby)toLobby(); me.dead=false;me.hp=me.maxHp;me.chakra=me.maxChakra;me.buff={};me.dv=null; $('over').style.display='none';run=true;last=performance.now();acc=0;requestAnimationFrame(loop);await save();banner('🏯 Đã trở về Lobby — đồ và tiến trình được giữ nguyên.');}
+async function resetAll(){/* Giữ lại hàm tương thích cũ; không xóa save khi nhân vật chết. */await reviveMe()}
 function toWorld(){if(!lobby)return;lobby=false;BX0=BY0=0;BX1=BY1=W;PJ=[];ZN=[];
  if(!world){world=true;F=[me];me.x=me.y=W/2;for(let i=0;i<80;i++)OR.push(newOrb());for(let i=0;i<14;i++)stream();wbT=18000;bsT=rnd(7200,18000)}else{F=WL;WL=null;me.x=wl0.x;me.y=wl0.y}banner('🌍 OPEN WORLD — cẩn thận!')}
 function toLobby(){if(lobby||dg)return;wl0={x:me.x,y:me.y};WL=F;F=[me];lobby=true;BX0=BY0=W/2-800;BX1=BY1=W/2+800;me.x=W/2;me.y=W/2+250;PJ=[];ZN=[];CL=[];me.hp=me.maxHp;me.chakra=me.maxChakra;banner('🏯 Lobby Làng Lá')}
@@ -810,6 +838,50 @@ async function pick(n){if(picking)return;picking=1;me=mk(n,W/2,W/2,0,currentAcco
 </script>
 <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
 <script>
+/* ===== ALLIES / ĐỒNG MINH ===== */
+const allyTeam = new Map();
+let pendingAllyInvites = [];
+function openAlliesPanel(){
+ $('alliesPanel').style.display='flex';
+ refreshAlliesUI();
+}
+function inviteAlly(id){
+ const name=G.get(id)?.name||'Shinobi';
+ if(!socket||!socket.connected){banner('⚠ Chưa kết nối server.');return}
+ socket.emit('ally_invite',{to:id});
+ $('allyStatus').textContent='Đã gửi lời mời tới '+name+'.';
+ banner('🤝 Đã gửi lời mời tới '+name);
+}
+function refreshAlliesUI(){
+ const online=$('allyOnlineList'),team=$('allyTeamList');
+ if(!online||!team)return;
+ const rows=[...G.entries()].filter(([id,p])=>id!==socket?.id).sort((a,b)=>String(a[1].name||'Shinobi').localeCompare(String(b[1].name||'Shinobi')));
+ online.innerHTML=rows.length?rows.map(([id,p])=>{
+  const name=String(p.name||'Shinobi').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const allied=allyTeam.has(id);
+  return `<div class="ally-row"><span><b>${name}</b><small>${p.char||'Shinobi'} · LV ${Math.max(1,Math.floor(p.lvl||1))}</small></span><button ${allied?'disabled':''} onclick="inviteAlly('${id}')">${allied?'✓ ĐỒNG MINH':'＋ MỜI'}</button></div>`;
+ }).join(''):'<p>Chưa thấy người chơi nào trong server này.</p>';
+ team.innerHTML=allyTeam.size?[...allyTeam.entries()].map(([id,p])=>{
+  const name=String(p.name||'Shinobi').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return `<div class="ally-row ally-member"><span><b>⭐ ${name}</b><small>${p.online?'🟢 Đang online':'⚪ Ngoại tuyến'}</small></span><button onclick="removeAlly('${id}')">BỎ</button></div>`;
+ }).join(''):'<p>Chưa có đồng minh. Mời người chơi ở cột bên trái nhé!</p>';
+}
+function removeAlly(id){allyTeam.delete(id);refreshAlliesUI();banner('Đã xóa đồng minh khỏi danh sách phiên này.')}
+function handleAllyInvite(data){
+ if(!data||!data.from)return;
+ const name=String(data.name||'Một Shinobi');
+ if(confirm('🤝 '+name+' muốn kết bạn đồng minh với bạn. Chấp nhận?')){
+  socket?.emit('ally_reply',{to:data.from,accept:true});
+  allyTeam.set(data.from,{name,online:true});
+  banner('⭐ Đã chấp nhận lời mời của '+name);
+ }else{
+  socket?.emit('ally_reply',{to:data.from,accept:false});
+  banner('Đã từ chối lời mời đồng minh.');
+ }
+ refreshAlliesUI();
+}
+function escapeAllyText(v){return String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
 /* ===== CLIENT MULTIPLAYER ===== */
 let socket = null, joined = false, lastRoom = '', lastBy = '', lastByT = -999;
 const G = new Map(), NPJ = [], BUF = [];
@@ -832,6 +904,18 @@ try {
   socket.on('connect_error', e => console.warn('Socket:', e && e.message));
   socket.on('server_full', m => alert(m));
   socket.on('feed', m => banner('⚔ ' + m));
+  socket.on('ally_invite', handleAllyInvite);
+  socket.on('ally_result', data => {
+    if(!data)return;
+    if(data.ok && data.id){allyTeam.set(data.id,{name:data.name||'Shinobi',online:true});banner('⭐ '+(data.name||'Người chơi')+' đã trở thành đồng minh!')}
+    else banner('🤝 '+(data.message||'Không thể thực hiện lời mời.'));
+    if($('alliesPanel')?.style.display==='flex')refreshAlliesUI();
+  });
+  socket.on('ally_update', data => {
+    if(data&&data.id)allyTeam.set(data.id,{name:data.name||'Shinobi',online:true});
+    refreshAlliesUI();
+  });
+  socket.on('system_chat', data => {if(data?.message)banner('📣 '+data.message)});
   socket.on('players', arr => {
     const seen = new Set();
     for (const d of arr) {
@@ -845,6 +929,8 @@ try {
       Object.assign(g, r); g.tx = x; g.ty = y;
     }
     for (const id of G.keys()) if (!seen.has(id)) G.delete(id);
+    for(const [id,a] of allyTeam){if(G.has(id))a.online=true;else a.online=false;}
+    if($('alliesPanel')?.style.display==='flex')refreshAlliesUI();
   });
   socket.on('fire', m => {
     const o = G.get(m.id);
@@ -1124,6 +1210,105 @@ render=function(){_originalRenderForMap();if($('worldMapPanel')?.style.display==
 const _originalEnterForRank=enterGame;
 enterGame=function(){_originalEnterForRank();setTimeout(()=>{if(me)refreshRankUI()},300)};
 </script>
+
+
+<style>
+/* UI LAYOUT FIX: tách các cụm HUD và thông báo để không đè lên nhau */
+#hud{left:14px!important;top:14px!important;z-index:4;width:min(320px,calc(100vw - 36px))!important}
+#mm{top:22px!important;right:28px!important;left:auto!important;bottom:auto!important;width:160px!important;height:160px!important;z-index:2}
+#lb{top:205px!important;right:14px!important;left:auto!important;width:200px!important;z-index:2}
+#zl{top:225px!important;left:14px!important;right:auto!important;width:220px!important;z-index:2}
+#zn{top:calc(12px + env(safe-area-inset-top,0px))!important;left:50%!important;z-index:4;max-width:min(44vw,460px);white-space:normal;text-align:center}
+#boss{top:calc(88px + env(safe-area-inset-top,0px))!important;z-index:3}
+#wbt{top:calc(130px + env(safe-area-inset-top,0px))!important;z-index:3}
+#warn{top:35%!important;z-index:4}
+#bar{z-index:4;max-width:calc(100vw - 24px);overflow-x:auto}
+#ib,#sb,#rb{z-index:4}
+#ninjaQuick{z-index:5}
+#toast{position:fixed;z-index:100;left:50%;top:46%;transform:translate(-50%,-50%) translateY(10px);width:max-content;max-width:min(520px,88vw);padding:12px 18px;background:#24150df2;color:#fff0c7;border:4px solid #f6c453;box-shadow:0 0 0 3px #24150d,5px 5px 0 #0009;font:700 13px/1.5 'Segoe UI',sans-serif;text-align:center;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .18s,transform .18s,visibility .18s}
+#toast.show{opacity:1;visibility:visible;transform:translate(-50%,-50%) translateY(0)}
+.allies-window{width:min(850px,96vw)}
+.ally-columns{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+.ally-section{min-width:0;background:#f5e6bd;border:3px solid #75431f;padding:10px;box-shadow:inset 0 0 0 2px #d3b577}
+.ally-section h3{font:10px 'Press Start 2P',monospace;line-height:1.8;color:#75431f;margin-bottom:8px}
+.ally-list{display:flex;flex-direction:column;gap:7px;max-height:40vh;overflow:auto}
+.ally-list>p{font-size:12px;line-height:1.6;color:#59371d;padding:8px}
+.ally-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;background:#fff0c7;border:2px solid #a77b43;color:#321d0e}
+.ally-row span{min-width:0;display:flex;flex-direction:column;gap:4px;overflow-wrap:anywhere}
+.ally-row b{font-size:13px}.ally-row small{font-size:11px;color:#654626}
+.ally-row button{font:700 9px 'Segoe UI',sans-serif;padding:9px 8px;white-space:nowrap;flex-shrink:0;text-shadow:none}
+.ally-row button:disabled{opacity:.55;filter:grayscale(1)}
+.ally-member{border-color:#648849}
+.ally-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;color:#59371d;font-size:12px}
+.ally-footer button{font-size:9px;padding:10px}
+@media(max-width:700px){
+ #hud{left:8px!important;top:8px!important;transform:scale(.72)!important;transform-origin:top left!important}
+ #mm{top:10px!important;right:10px!important;left:auto!important;bottom:auto!important;width:96px!important;height:96px!important}
+ #lb{top:120px!important;right:8px!important;left:auto!important;width:145px!important;transform:scale(.78)!important;transform-origin:top right!important;font-size:10px!important}
+ #zl{top:178px!important;left:8px!important;right:auto!important;width:145px!important;font-size:9px!important}
+ #ninjaQuick{top:auto!important;bottom:calc(122px + env(safe-area-inset-bottom,0px))!important;left:50%!important;transform:translateX(-50%)!important;width:calc(100vw - 16px);justify-content:center;flex-wrap:wrap;gap:4px}
+ #ninjaQuick button{font-size:7px!important;padding:7px 6px!important}
+ #bar{bottom:calc(12px + env(safe-area-inset-bottom,0px))!important;gap:4px!important;padding:5px!important;max-width:calc(100vw - 10px)!important}
+ .sl{width:48px!important;height:58px!important}
+ #ib,#sb,#rb{width:48px!important;height:48px!important;font-size:20px!important}
+ #ib{left:8px!important;bottom:calc(70px + env(safe-area-inset-bottom,0px))!important}
+ #sb{left:66px!important;bottom:calc(70px + env(safe-area-inset-bottom,0px))!important}
+ #rb{left:124px!important;bottom:calc(70px + env(safe-area-inset-bottom,0px))!important}
+ #ib small,#sb small,#rb small{font-size:7px!important}
+ #toast{top:43%;font-size:12px;padding:9px 12px}
+ .ally-columns{grid-template-columns:1fr}
+ .ally-list{max-height:28vh}
+ .ally-section h3{font-size:8px}
+ .ally-footer{align-items:flex-start;flex-direction:column}
+ .allies-window{max-height:94vh;padding:9px}
+}
+</style>
+
+
+<style>
+/* COMPACT HUD: gom các cụm UI vào vùng riêng, tránh đè nhau */
+#hud{top:10px!important;left:10px!important;width:clamp(220px,26vw,290px)!important;padding:8px 10px!important;gap:5px!important}
+#top{gap:8px!important}#av{width:42px!important;height:56px!important}
+#st{display:flex;flex-wrap:wrap;gap:6px 9px!important;font-size:10px!important}
+#hud .bar{width:100%!important;height:15px!important}#hud #xp{height:6px!important;width:100%!important}
+#mm{top:10px!important;right:10px!important;bottom:auto!important;width:118px!important;height:118px!important}
+#lb{top:140px!important;right:10px!important;width:178px!important;padding:7px 9px!important;font-size:11px!important}
+#zl{top:10px!important;left:calc(clamp(220px,26vw,290px) + 22px)!important;right:auto!important;width:175px!important;max-height:65px!important;overflow:hidden;font-size:10px!important}
+#zn{top:calc(42px + env(safe-area-inset-top,0px))!important;left:50%!important;max-width:36vw!important;font-size:9px!important;padding:6px 9px!important;z-index:3}
+#ninjaQuick{top:10px!important;left:50%!important;transform:translateX(-50%)!important;gap:5px!important;max-width:42vw!important;flex-wrap:wrap!important;justify-content:center!important}
+#ninjaQuick button{padding:7px 8px!important;font-size:8px!important}
+#boss{top:calc(78px + env(safe-area-inset-top,0px))!important;width:min(320px,38vw)!important}
+#wbt{top:calc(116px + env(safe-area-inset-top,0px))!important}
+#warn{top:34%!important;max-width:min(360px,80vw)!important;left:50%!important;transform:translateX(-50%)!important}
+#toast{top:auto!important;bottom:calc(178px + env(safe-area-inset-bottom,0px))!important;left:50%!important;transform:translate(-50%,8px)!important;max-width:min(430px,84vw)!important;padding:9px 13px!important;font-size:12px!important;z-index:100}
+#toast.show{transform:translate(-50%,0)!important}
+#deathActions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:8px}
+#deathActions button{min-width:190px;max-width:90vw;font-size:10px;line-height:1.5}
+.death-note{color:#d6c6a3;font-size:12px;max-width:460px;line-height:1.6;margin-top:4px}
+#over{z-index:50!important;padding:22px!important}
+@media(max-width:700px){
+ #hud{left:7px!important;top:7px!important;width:190px!important;transform:none!important;padding:6px!important;gap:4px!important}
+ #top{gap:5px!important}#av{width:30px!important;height:40px!important}
+ #st{font-size:8px!important;gap:4px 6px!important}
+ #hud .bar{height:12px!important}#hud #xp{height:5px!important}
+ #mm{top:8px!important;right:8px!important;width:78px!important;height:78px!important}
+ #lb{top:94px!important;right:7px!important;width:126px!important;font-size:9px!important;padding:5px!important}
+ #zl{top:93px!important;left:7px!important;width:135px!important;font-size:8px!important;padding:5px!important}
+ #ninjaQuick{top:150px!important;left:7px!important;right:7px!important;transform:none!important;width:auto!important;max-width:none!important;justify-content:flex-start!important}
+ #ninjaQuick button{font-size:7px!important;padding:6px!important}
+ #boss{top:calc(205px + env(safe-area-inset-top,0px))!important;width:min(250px,72vw)!important;font-size:10px!important}
+ #wbt{top:calc(245px + env(safe-area-inset-top,0px))!important}
+ #zn{top:calc(205px + env(safe-area-inset-top,0px))!important;max-width:70vw!important;left:50%!important}
+ #toast{bottom:calc(166px + env(safe-area-inset-bottom,0px))!important;max-width:90vw!important;font-size:11px!important}
+ #ib,#sb,#rb{width:44px!important;height:44px!important}
+ #ib{left:7px!important;bottom:calc(68px + env(safe-area-inset-bottom,0px))!important}
+ #sb{left:59px!important;bottom:calc(68px + env(safe-area-inset-bottom,0px))!important}
+ #rb{left:111px!important;bottom:calc(68px + env(safe-area-inset-bottom,0px))!important}
+ #bar{bottom:calc(8px + env(safe-area-inset-bottom,0px))!important;left:50%!important;max-width:calc(100vw - 8px)!important;gap:3px!important}
+ .sl{width:42px!important;height:50px!important}
+ #deathActions{flex-direction:column;width:min(290px,90vw)}#deathActions button{width:100%;min-width:0}
+}
+</style>
 
 </body>
 </html>
