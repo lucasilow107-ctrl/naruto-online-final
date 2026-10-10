@@ -257,7 +257,8 @@ const TOKEN_KEY='naruto_rpg_auth_token_v1';
 function getAuthToken(){try{return localStorage.getItem(TOKEN_KEY)||''}catch(e){return ''}}
 function setAuthToken(token){try{if(token)localStorage.setItem(TOKEN_KEY,token);else localStorage.removeItem(TOKEN_KEY)}catch(e){}}
 function authHeaders(){const token=getAuthToken();return token?{Authorization:'Bearer '+token}:{}}
-let currentRoomId = 'world';
+const MAIN_WORLD_ROOM = 'naruto-main-world';
+let currentRoomId = MAIN_WORLD_ROOM;
 
 function authMsg(t,ok=false){const e=$('authMsg');if(!e)return;e.textContent=t||'';e.classList.toggle('ok',!!ok)}
 function showAuth(mode='login'){$('auth').style.display='flex';$('start').style.display='none';$('loginForm').style.display=mode==='login'?'flex':'none';$('registerForm').style.display=mode==='register'?'flex':'none';$('tabLogin').classList.toggle('active',mode==='login');$('tabRegister').classList.toggle('active',mode==='register');authMsg('')}
@@ -292,26 +293,12 @@ async function fetchRooms(){
     `).join('');
   }catch(e){$('roomList').textContent = 'Không tải được danh sách Server';}
 }
-function createCustomRoom(){
-  const val = $('customRoomInput').value.trim();
-  if(!val) return alert('Hãy nhập tên Server!');
-  const roomId = 'room_' + val.toLowerCase().replace(/[^a-z0-9]/g, '');
-  switchRoom(roomId, 'Server: ' + val);
-  closeRoomModal();
-}
-function joinCustomRoom(){
-  const val = $('customRoomInput').value.trim();
-  if(!val) return alert('Hãy nhập mã phòng!');
-  const roomId = 'room_' + val.toLowerCase().replace(/[^a-z0-9]/g, '');
-  switchRoom(roomId, 'Server: ' + val);
-  closeRoomModal();
-}
+function createCustomRoom(){ banner('🌍 Tất cả người chơi dùng chung một thế giới Naruto!'); closeRoomModal(); }
+function joinCustomRoom(){ banner('🌍 Không cần mã phòng — bạn đang ở thế giới chung.'); closeRoomModal(); }
 function switchRoom(roomId, roomName){
-  currentRoomId = roomId;
-  if(socket && socket.connected){
-    socket.emit('switch_room', { roomId, roomName });
-    banner('🌐 Đã chuyển sang Server: ' + (roomName || roomId));
-  }
+  currentRoomId = MAIN_WORLD_ROOM;
+  if(socket && socket.connected) socket.emit('switch_room', { roomId: MAIN_WORLD_ROOM, roomName: 'Thế giới Naruto chung' });
+  banner('🌍 Đang ở thế giới Naruto chung');
 }
 
 /* ---------- Pixel Làng Lá: hình nền + biểu tượng lá ---------- */
@@ -882,7 +869,7 @@ let pf=0;setInterval(()=>{pf^=1;for(const n of PLAY){const g=$('pv'+n).getContex
 async function pick(n){if(picking)return;picking=1;me=mk(n,W/2,W/2,0,currentAccount||'Bạn');F=[me];
  me.slots=SK[n].slice();me.sl=[];buildBar();await load();{const g=$('av').getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(SPR[n][0],0,0,60,78)}$('nm').textContent=currentAccount||n;
  spawnNPCs();lobby=true;BX0=BY0=W/2-800;BX1=BY1=W/2+800;me.x=W/2;me.y=W/2+250;try{AC=AC||new AudioContext()}catch(e){};
- if(socket&&socket.connected)socket.emit('join',{name:guest?currentAccount:currentAccount,char:me.char,token:getAuthToken(),roomId:currentRoomId,gameData:getSavePayload()});
+ if(socket&&socket.connected)socket.emit('join',{name:guest?currentAccount:currentAccount,char:me.char,token:getAuthToken(),roomId:MAIN_WORLD_ROOM,roomName:'Thế giới Naruto chung',gameData:getSavePayload()});
  $('start').style.display='none';run=true;last=performance.now();requestAnimationFrame(loop)}
 </script>
 <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
@@ -952,7 +939,8 @@ try {
       char: me ? me.char : 'Naruto',
       account: currentAccount,
       token: getAuthToken(),
-      roomId: currentRoomId,
+      roomId: MAIN_WORLD_ROOM,
+      roomName: 'Thế giới Naruto chung',
       gameData: getSavePayload()
     });
   });
@@ -1381,6 +1369,110 @@ enterGame=function(){_originalEnterForRank();setTimeout(()=>{if(me)refreshRankUI
  #deathActions{flex-direction:column;width:min(290px,90vw)}#deathActions button{width:100%;min-width:0}
 }
 </style>
+
+
+<script>
+/* ===== SINGLE SHARED WORLD: server-authoritative mobs/bosses + immediate hit sync ===== */
+let isWorldOwner = false;
+let sharedWorldReady = false;
+let pendingSharedWorldSnapshot = null;
+const SHARED_ID_PREFIX = 'shared_';
+const SHARED_ROOM_ID = 'naruto-main-world';
+const _streamSharedOriginal = stream;
+stream = function(){ if (isWorldOwner && !lobby && !dg) return _streamSharedOriginal(); };
+const _spawnBossSharedOriginal = spawnBossRand;
+spawnBossRand = function(){ if (isWorldOwner && !lobby && !dg) return _spawnBossSharedOriginal(); };
+const _spawnWBSharedOriginal = spawnWB;
+spawnWB = function(){ if (isWorldOwner && !lobby && !dg) return _spawnWBSharedOriginal(); };
+const _aiSharedOriginal = ai;
+ai = function(f){ if (f && f._netShared && !isWorldOwner) return; return _aiSharedOriginal(f); };
+
+function publishSharedWorld(){
+  if(!socket || !socket.connected || !isWorldOwner || !me || lobby || dg) return;
+  const entities=[];
+  for(const f of F){
+    if(!f || f===me || f.dgx || f.dead || !(f.mob || f.boss || f.bot)) continue;
+    if(!f._netId) f._netId=SHARED_ID_PREFIX+Math.random().toString(36).slice(2,12);
+    entities.push({id:f._netId,x:f.x,y:f.y,char:f.char||'Naruto',name:f.name||'Enemy',hp:f.hp,maxHp:f.maxHp,
+      lvl:f.lvl||1,face:f.face||1,mob:!!f.mob,boss:!!f.boss,wb:!!f.wb,bi:Number.isFinite(f.bi)?f.bi:-1,
+      r:f.r||16,uc:f.uc||'#80deea',t:f.t||1,dmgM:f.dmgM||1,bdr:f.bdr||0,bk:f.bk||1,
+      def:Array.isArray(f.def)?f.def:null,elite:!!f.elite,md:f.md||0,atk:f.atk||0,wt:f.wt||0,wa:f.wa||0,
+      t0:f.t0||0,wl:f.wl||0,arm:f.arm||null,dead:false});
+  }
+  socket.emit('world_state',{mode:'world',entities});
+}
+function applySharedWorld(data){
+  if(!data || data.mode!=='world' || lobby || dg || !me) return;
+  sharedWorldReady=true;
+  const incoming=Array.isArray(data.entities)?data.entities:[];
+  const existing=new Map();
+  for(const f of F) if(f && f._netShared) existing.set(f._netId,f);
+  const seen=new Set();
+  for(const d of incoming){
+    if(!d || typeof d.id!=='string' || !Number.isFinite(d.x) || !Number.isFinite(d.y)) continue;
+    seen.add(d.id);
+    let f=existing.get(d.id);
+    if(!f){ f=mk(d.char||'Naruto',d.x,d.y,1,d.name||'Enemy'); f._netShared=true; f._netId=d.id; F.push(f); }
+    Object.assign(f,{x:d.x,y:d.y,tx:d.x,ty:d.y,char:d.char||'Naruto',name:d.name||'Enemy',hp:Number(d.hp)||1,
+      maxHp:Number(d.maxHp)||1,lvl:d.lvl||1,face:d.face||1,mob:!!d.mob,boss:!!d.boss,wb:!!d.wb,bi:d.bi,
+      r:d.r||16,uc:d.uc||'#80deea',t:d.t||1,dmgM:d.dmgM||1,bdr:d.bdr||0,bk:d.bk||1,
+      def:Array.isArray(d.def)?d.def:f.def,elite:!!d.elite,md:d.md||0,atk:d.atk||0,wt:d.wt||0,wa:d.wa||0,
+      t0:d.t0||0,wl:d.wl||0,arm:d.arm||null,dead:false});
+    // The elected owner takes over AI/control for entities restored from the previous owner.
+  }
+  F=F.filter(f=>{
+    if(f===me || f.dgx) return true;
+    if(f._netShared) return seen.has(f._netId);
+    if(f.mob || f.boss || f.bot) return false;
+    return true;
+  });
+}
+const _dmgSharedOriginal=dmg;
+dmg=function(t,a,s){
+  if(t && t._netShared && !isWorldOwner && s===me){
+    if(t.dead || t.hp<=0) return;
+    if(t.buff && t.buff.dodge>0 && Math.random()<.5){txt(t.x,t.y-30,'MISS','#fff');return;}
+    let amount=Number(a)||0;
+    if(s) amount*= (s.dmgM||1)*(s.buff&&s.buff.ult>0?1.3:1);
+    if(t.buff&&t.buff.shield>0) amount*=.3;
+    if(t.arm) amount*=1-(t.arm.dr||0);
+    if(s&&s.arm&&s.arm.dm) amount*=1+s.arm.dm;
+    if(t.bdr) amount*=1-t.bdr;
+    if(s===me) amount*=.9;
+    amount=Math.max(1,Math.round(amount));
+    t.hp=Math.max(0,(Number(t.hp)||0)-amount); t.hf=5;
+    txt(t.x+rnd(-8,8),t.y-30,amount,'#ffeb3b');
+    if(socket&&socket.connected) socket.emit('world_hit',{id:t._netId,damage:amount});
+    return;
+  }
+  const before=t&&Number(t.hp);
+  _dmgSharedOriginal(t,a,s);
+  if(isWorldOwner && t && (t.mob||t.boss||t.bot) && t!==me && Number(t.hp)!==before) publishSharedWorld();
+};
+if(socket){
+  socket.on('world_owner',data=>{
+    const wasOwner=isWorldOwner;
+    isWorldOwner=!!(data&&data.id===socket.id);
+    if(isWorldOwner && !wasOwner && socket.connected) socket.emit('world_request_snapshot',{roomId:SHARED_ROOM_ID});
+    if(isWorldOwner) setTimeout(publishSharedWorld,80);
+  });
+  socket.on('world_state',data=>{ if(data && data.mode==='world' && (lobby || dg || !me)) pendingSharedWorldSnapshot=data; else applySharedWorld(data); });
+  socket.on('world_hit',data=>{
+    if(!isWorldOwner || !data || typeof data.id!=='string') return;
+    const target=F.find(f=>f && f._netId===data.id && (f.mob||f.boss||f.bot) && !f.dead);
+    if(!target) return;
+    target.hp-=Math.max(1,Math.min(1000000,Number(data.damage)||1)); target.hf=5;
+    if(target.hp<=0) kill(target,null);
+    publishSharedWorld();
+  });
+}
+const _updateSharedOriginal=update;
+update=function(){
+  _updateSharedOriginal();
+  if(pendingSharedWorldSnapshot && me && !lobby && !dg){ const pending=pendingSharedWorldSnapshot; pendingSharedWorldSnapshot=null; applySharedWorld(pending); }
+  if(socket&&socket.connected&&isWorldOwner&&!lobby&&!dg&&!pendingSharedWorldSnapshot&&fr%6===0) publishSharedWorld();
+};
+</script>
 
 </body>
 </html>
